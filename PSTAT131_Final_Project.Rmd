@@ -1,0 +1,54 @@
+**Loading the dataset:**  
+```{r}
+pokemon <- read.csv("pokemon.csv")
+head(pokemon)
+```
+
+Outcome-  
+capture_rate: capture rate  
+
+https://bulbapedia.bulbagarden.net/wiki/Stat
+Variables of interest-  
+attack (how much damage they deal using a physical move)  
+classification 
+defense 
+hp (hit points - how much damage they can receive before fainting)
+sp_attack (how much damage the deal using special moves)   
+sp_defense  
+type1  
+type2  
+generation
+is_legendary  
+
+```{r}
+library(tidyverse)
+ggplot(pokemon, aes(x=attack, y=capture_rate)) + geom_point()
+```
+
+```{r}
+
+library(dplyr)
+filter(pokemon, capture_rate %in% c("30 (Meteorite)255 (Core)"))
+pokemon[pokemon$name=="Minior", "capture_rate"] <- 30
+# I chose 30 because the capture rate only rises to 255 if you break its shell
+filter(pokemon, name %in% c("Minior"))
+```
+
+```{r}
+ggplot(pokemon, aes(x=attack, y=capture_rate)) + geom_point()
+pokemon[, "capture_rate"] <- as.numeric(pokemon$capture_rate)
+```
+
+```{r}
+ggplot(pokemon, aes(x=attack, y=capture_rate)) + geom_point()
+ggplot(pokemon, aes(x=hp, y=capture_rate)) + geom_point()
+ggplot(pokemon, aes(x=generation, y=capture_rate, group=generation)) + geom_boxplot()
+ggplot(pokemon, aes(x=defense, y=capture_rate)) + geom_point()
+ggplot(pokemon, aes(x=sp_attack, y=capture_rate)) + geom_point()
+ggplot(pokemon, aes(x=sp_defense, y=capture_rate)) + geom_point()
+ggplot(pokemon, aes(x=classfication, y=capture_rate, group=classfication)) + geom_boxplot()
+ggplot(pokemon, aes(x=type1, y=capture_rate, group=type2)) + geom_boxplot()
+```
+
+
+
