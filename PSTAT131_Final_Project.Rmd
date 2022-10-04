@@ -50,5 +50,30 @@ ggplot(pokemon, aes(x=classfication, y=capture_rate, group=classfication)) + geo
 ggplot(pokemon, aes(x=type1, y=capture_rate, group=type2)) + geom_boxplot()
 ```
 
+```{r}
+pokemon %>%
+  distinct(classfication)
+```
+
+Might not be a good idea to do classification because there are 588 unique classifications of a pokemon --> better to focus on type
+
+```{r}
+library(corrplot)
+pokemon_numeric <- pokemon %>%
+  select_if(is.numeric)
+# taking out the aforementioned columns with too many missing values (was not planning on using them anyways)
+pokemon_numeric <- pokemon_numeric[, !names(pokemon_numeric) %in% c("height_m", "weight_kg", "percentage_male")]
+
+pokemon_cor <- cor(pokemon_numeric)
+pokemon_corrplot <- corrplot(pokemon_cor)
+```
+
+We can see that how a pokemon performs against a certain other type of pokemon is not really correlated to capture rate much. However, this also shows how capture rate has a high negative correlation with base_total which is the Base Stat Total (BST = hp + attack + defense + sp_attack + sp_defense + speed). So, it might be worth exploring how all of those added together affects the capture rate.
+
+```{r}
+ggplot(pokemon, aes(capture_rate)) + geom_histogram()
+```
+
+No specific skewness is visible, but there is a peak in the data around 40-50 capture rate.  
 
 
