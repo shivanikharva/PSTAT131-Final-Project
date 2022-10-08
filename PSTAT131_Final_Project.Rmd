@@ -1,8 +1,22 @@
+Loading, exploring, morphing  --> tidying eventually where we make factors
+
 **Loading the dataset:**  
 ```{r}
+library(tidyverse)
 pokemon <- read.csv("pokemon.csv")
 head(pokemon)
 ```
+
+```{r}
+pokemon %>%
+  dim()
+```
+801 rows - 801 pokemon
+41 columns - we definitely will not be needing all of those variables
+
+based on the question i want to answer, it would not be very significant to look at the attack scores of pokemon against other specific types of pokemon as we already have the overall attack score. also it would not be meaningful to do based on classification as there are N unique classifications (use code from below). base egg steps and base happiness appear to be about the same for most pokemon and do not really have much to do with the skill level of the pokemon. experience growth also appears to be quite similar across most pokemon so we are also not interested in that.
+
+further exploring the capture rate, our outcome. notice that one is a string --> minior --> explain why choose 30 instead of 255
 
 Outcome-  
 capture_rate: capture rate  
