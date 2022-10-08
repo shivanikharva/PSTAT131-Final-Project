@@ -44,6 +44,8 @@ Also, the `base_happiness`, `base_egg_steps`, and `experience_growth` variables 
 
 Some other variables must also be taken out as they do not seem as if they would reveal any more information relevant to our analysis: `weight_kg`, `pokedex_number`, `percentage_male`, `japanese_name`, and `height_m`.   
 
+## LIST ALL THE VARIABLES TO ACTUALLY INCLUDE AND THEIR DESCRIPTIONS
+
 ## Morphing and Tidying Data  
 
 

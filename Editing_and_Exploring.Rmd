@@ -90,4 +90,9 @@ ggplot(pokemon, aes(capture_rate)) + geom_histogram()
 
 No specific skewness is visible, but there is a peak in the data around 40-50 capture rate.  
 
+```{r}
+
+ability_split <-strsplit(as.character(pokemon$abilities),',',fixed=TRUE)
+ability_split
+```
 
