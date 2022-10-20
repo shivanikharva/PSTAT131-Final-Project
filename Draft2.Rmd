@@ -1,0 +1,56 @@
+```{r}
+# Loading all necessary packages
+library(tidyverse)
+library(dplyr)
+library(tidymodels)
+library(readr)
+# Assigning the data to a variable
+pokemon <- read_csv("data/pokemon.csv")
+```
+
+```{r}
+# Calling head() to see the first few rows
+head(pokemon)
+```
+
+```{r}
+# Calling dim() to see how many rows and columns
+dim(pokemon)
+```
+
+```{r}
+# Selecting only the variables we want
+pokemon <- pokemon %>% 
+  select(c("abilities", "attack", "base_total", "capture_rate", "defense", "hp", "name", "sp_attack", "sp_defense", "speed", "type1", "generation", "is_legendary"))
+head(pokemon)
+```
+
+```{r}
+# summary stats
+pokemon %>% 
+  summary()
+
+# missing values?
+colSums(is.na(pokemon))
+```
+
+```{r}
+# capture rate should not be a character
+library(dplyr)
+filter(pokemon, capture_rate %in% c("30 (Meteorite)255 (Core)"))
+pokemon[pokemon$name=="Minior", "capture_rate"] <- "30"
+pokemon$capture_rate <- as.integer(pokemon$capture_rate)
+# I chose 30 because the capture rate only rises to 255 if you break its shell
+filter(pokemon, name %in% c("Minior"))
+```
+
+```{r}
+generation_levels <- c(1,2,3,4,5,6,7)
+pokemon$generation <- factor(pokemon$generation, levels=generation_levels)
+```
+
+```{r}
+pokemon %>% 
+  summary()
+```
+
