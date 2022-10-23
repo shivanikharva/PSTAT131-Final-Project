@@ -47,10 +47,60 @@ filter(pokemon, name %in% c("Minior"))
 ```{r}
 generation_levels <- c(1,2,3,4,5,6,7)
 pokemon$generation <- factor(pokemon$generation, levels=generation_levels)
+# MAKE IS_LEGENDARY A FACTOR
 ```
 
 ```{r}
 pokemon %>% 
   summary()
 ```
+
+```{r}
+library(tidytext)
+```
+
+```{r}
+test <- pokemon$abilities %>% 
+  str_split(pattern = "', '") #%>% 
+  # str_extract_all(string = ., pattern = "\\w+", simplify = TRUE)
+  # map(str_extract_all(string = ., pattern = "\\w+", simplify = TRUE))
+all_abilities <- test %>% map(~ str_replace_all(string = ., pattern = "[[:punct:]]", "")) %>% 
+  unlist() %>% as.factor() %>% 
+  data.frame(abilities = .)
+
+all_abilities %>% group_by(abilities) %>% summarise(count = n()) %>% 
+  arrange(desc(count)) %>% View()
+  
+ggplot(data = tibble(all_abilities)) +
+  geom_bar(aes(x = all_abilities))
+```
+
+```{r}
+pokemon_copy <- pokemon
+pokemon_copy$abilities <- pokemon_copy$abilities %>% 
+  str_split(pattern = "', '") %>% 
+  map(~ str_replace_all(string = ., pattern = "[[:punct:]]", ""))
+
+#tidy_abilities <- pokemon_copy %>% 
+#  unnest_tokens(words, abilities)
+
+pokemon_copy %>% 
+  unnest() %>% 
+  View()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
