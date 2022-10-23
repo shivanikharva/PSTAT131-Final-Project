@@ -71,8 +71,8 @@ all_abilities <- test %>% map(~ str_replace_all(string = ., pattern = "[[:punct:
 all_abilities %>% group_by(abilities) %>% summarise(count = n()) %>% 
   arrange(desc(count)) %>% View()
   
-ggplot(data = tibble(all_abilities)) +
-  geom_bar(aes(x = all_abilities))
+#ggplot(data = tibble(all_abilities)) +
+ # geom_bar(aes(x = all_abilities))
 ```
 
 ```{r}
@@ -84,11 +84,25 @@ pokemon_copy$abilities <- pokemon_copy$abilities %>%
 #tidy_abilities <- pokemon_copy %>% 
 #  unnest_tokens(words, abilities)
 
-pokemon_copy %>% 
-  unnest() %>% 
-  View()
+pokemon_copy2 <- pokemon_copy %>% 
+  unnest() 
+
+pokemon_copy2
 ```
 
+```{r}
+library(dplyr)
+
+pokemon_abilities_grouped <- pokemon_copy2 %>% 
+  group_by(abilities)
+
+pokemon_abilities_grouped %>% 
+  summarise(
+    capture_rate = mean(capture_rate)
+  ) %>% 
+  arrange(desc(capture_rate))
+
+```
 
 
 
