@@ -68,7 +68,7 @@ all_abilities <- test %>% map(~ str_replace_all(string = ., pattern = "[[:punct:
   unlist() %>% as.factor() %>% 
   data.frame(abilities = .)
 
-all_abilities %>% group_by(abilities) %>% summarise(count = n()) %>% 
+all_abilities %>% group_by(abilities) %>% summarise(count = n(), capture_rate = mean(capture_rate)) %>% 
   arrange(desc(count)) %>% View()
   
 #ggplot(data = tibble(all_abilities)) +
@@ -87,7 +87,8 @@ pokemon_copy$abilities <- pokemon_copy$abilities %>%
 pokemon_copy2 <- pokemon_copy %>% 
   unnest() 
 
-pokemon_copy2
+pokemon_copy2 %>% group_by(abilities) %>%  summarise(count = n(), capture_rate = mean(capture_rate)) %>% 
+  arrange(desc(count)) %>% View()
 ```
 
 ```{r}
@@ -106,6 +107,9 @@ pokemon_abilities_grouped %>%
 
 
 
+```{r}
+mean(pokemon_copy2$capture_rate)
+```
 
 
 
