@@ -7,6 +7,7 @@ library(readr)
 # Assigning the data to a variable
 pokemon <- read_csv("data/pokemon.csv")
 tidymodels_prefer()
+set.seed(0124)
 ```
 
 ```{r}
@@ -113,14 +114,84 @@ mean(pokemon_copy2$capture_rate)
 ```
 
 ```{r}
-o
+# making boolean columns for if a pokemon has the top 5 most apparent abilities
+pokemon_copy3 <- pokemon
+
+sturdy <- "Sturdy"
+pokemon_copy4 <- pokemon %>% 
+  mutate(has_sturdy = if_else(grepl("Sturdy", pokemon$abilities), 1, 0)) %>% 
+  mutate(has_swift_swim = if_else(grepl("Swift Swim", pokemon$abilities), 1, 0)) %>% 
+  mutate(has_keen_eye = if_else(grepl("Keen Eye", pokemon$abilities), 1, 0)) %>% 
+  mutate(has_chlorophyll = if_else(grepl("Chlorophyll", pokemon$abilities), 1, 0)) %>% 
+  mutate(has_levitate = if_else(grepl("Levitate", pokemon$abilities), 1, 0))
+
+sum(pokemon_copy4$has_sturdy)
+sum(pokemon_copy4$has_swift_swim)
+sum(pokemon_copy4$has_keen_eye)
+sum(pokemon_copy4$has_chlorophyll)
+sum(pokemon_copy4$has_levitate)
+
+write_csv(pokemon_copy4, "pokemon_final.csv")
 ```
 
+```{r}
+pokemon_data <- read_csv("pokemon_final.csv")
+head(pokemon_data)
+```
 
+```{r}
+# Changing categorical predictors to factors
+pokemon_data$type1 <- as.factor(pokemon_data$type1)
+pokemon_data$generation <- as.factor(pokemon_data$generation)
+pokemon_data$is_legendary <- as.factor(pokemon_data$is_legendary)
+pokemon_data$has_sturdy <- as.factor(pokemon_data$has_sturdy)
+pokemon_data$has_swift_swim <- as.factor(pokemon_data$has_swift_swim)
+pokemon_data$has_keen_eye <- as.factor(pokemon_data$has_keen_eye)
+pokemon_data$has_chlorophyll <- as.factor(pokemon_data$has_chlorophyll)
+pokemon_data$has_levitate <- as.factor(pokemon_data$has_levitate)
+```
 
+```{r}
+summary(pokemon_data)
+```
 
+```{r}
+# Splitting the data
+pokemon_split <- initial_split(pokemon_data, prop = 0.7, strata = capture_rate)
+pokemon_train <- training(pokemon_split)
+pokemon_test <- testing(pokemon_split)
+```
 
+```{r}
+# Creating recipe
+pokemon_recipe <- recipe(capture_rate ~ attack + defense + hp + sp_attack + sp_defense + speed + type1 + generation + is_legendary + has_sturdy + has_swift_swim + has_keen_eye + has_chlorophyll + has_levitate, data = pokemon_train) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_center(all_predictors()) %>% 
+  step_scale(all_predictors())
+```
 
+```{r}
+# Creating folds
+pokemon_folds <- vfold_cv(pokemon_train, v = 10)
+```
+
+```{r}
+# Linear regression 
+lm_model <- linear_reg() %>% 
+  set_engine("lm")
+
+lm_workflow <- workflow() %>% 
+  add_model(lm_model) %>% 
+  add_recipe(pokemon_recipe)
+```
+
+```{r}
+# Fitting the models
+lm_fit <- fit_resamples(lm_workflow, resamples = pokemon_folds)
+```
+```{r}
+collect_metrics(lm_fit)
+```
 
 
 
