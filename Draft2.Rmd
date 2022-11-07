@@ -6,6 +6,7 @@ library(tidymodels)
 library(readr)
 # Assigning the data to a variable
 pokemon <- read_csv("data/pokemon.csv")
+tidymodels_prefer()
 ```
 
 ```{r}
@@ -109,6 +110,10 @@ pokemon_abilities_grouped %>%
 
 ```{r}
 mean(pokemon_copy2$capture_rate)
+```
+
+```{r}
+o
 ```
 
 
