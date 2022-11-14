@@ -4,6 +4,7 @@ library(tidyverse)
 library(dplyr)
 library(tidymodels)
 library(readr)
+library(kknn)
 # Assigning the data to a variable
 pokemon <- read_csv("data/pokemon.csv")
 tidymodels_prefer()
@@ -164,7 +165,7 @@ pokemon_test <- testing(pokemon_split)
 
 ```{r}
 # Creating recipe
-pokemon_recipe <- recipe(capture_rate ~ attack + defense + hp + sp_attack + sp_defense + speed + type1 + generation + is_legendary + has_sturdy + has_swift_swim + has_keen_eye + has_chlorophyll + has_levitate, data = pokemon_train) %>% 
+pokemon_recipe <- recipe(capture_rate ~ attack + defense + hp + sp_attack + sp_defense + speed + type1 + generation + is_legendary + has_sturdy + has_swift_swim + has_keen_eye + has_chlorophyll + has_levitate, data = pokemon_train) %>%
   step_dummy(all_nominal_predictors()) %>% 
   step_center(all_predictors()) %>% 
   step_scale(all_predictors())
@@ -174,6 +175,8 @@ pokemon_recipe <- recipe(capture_rate ~ attack + defense + hp + sp_attack + sp_d
 # Creating folds
 pokemon_folds <- vfold_cv(pokemon_train, v = 10)
 ```
+
+### Linear Regression 
 
 ```{r}
 # Linear regression 
@@ -192,6 +195,144 @@ lm_fit <- fit_resamples(lm_workflow, resamples = pokemon_folds)
 ```{r}
 collect_metrics(lm_fit)
 ```
+
+### Polynomial Regression  
+
+### Ridge Regression   
+```{r}
+ridge_lasso_recipe <- recipe(capture_rate ~ attack + defense + hp + sp_attack + sp_defense + speed + type1 + generation + is_legendary + has_sturdy + has_swift_swim + has_keen_eye + has_chlorophyll + has_levitate, data = pokemon_train) %>%
+  step_dummy(all_nominal_predictors()) %>% 
+  step_novel(all_nominal_predictors()) %>% 
+  step_zv(all_predictors()) %>% 
+  step_normalize(all_predictors())
+
+ridge_spec <- linear_reg(mixture = 0, penalty = tune()) %>% 
+  set_mode("regression") %>% 
+  set_engine("glmnet")
+
+ridge_workflow <- workflow() %>% 
+  add_recipe(ridge_lasso_recipe) %>% 
+  add_model(ridge_spec)
+
+penalty_grid <- grid_regular(penalty(range = c(-5,5)), levels = 50)
+
+tune_res <- tune_grid(
+  ridge_workflow,
+  resamples = pokemon_folds,
+  grid = penalty_grid
+)
+```
+```{r}
+autoplot(tune_res)
+```
+
+```{r}
+best_penalty <- select_best(tune_res, metric = "rsq")
+
+ridge_final <- finalize_workflow(ridge_workflow, best_penalty)
+ridge_final_fit <- fit_resamples(ridge_final, resamples = pokemon_folds)
+collect_metrics(ridge_final_fit)
+```
+
+### Lasso Regression 
+```{r}
+lasso_spec <- 
+  linear_reg(penalty = tune(), mixture = 1) %>% 
+  set_mode("regression") %>% 
+  set_engine("glmnet") 
+
+lasso_workflow <- workflow() %>% 
+  add_recipe(ridge_lasso_recipe) %>% 
+  add_model(lasso_spec)
+
+tune_res2 <- tune_grid(
+  lasso_workflow,
+  resamples = pokemon_folds,
+  grid = penalty_grid
+)
+```
+
+```{r}
+autoplot(tune_res2)
+```
+
+```{r}
+best_lasso_penalty <- select_best(tune_res2, metric = "rsq")
+lasso_final <- finalize_workflow(lasso_workflow, best_lasso_penalty)
+lasso_final_fit <- fit_resamples(lasso_final, resamples = pokemon_folds)
+```
+
+```{r}
+collect_metrics(lasso_final_fit)
+```
+
+
+```{r, message = FALSE, warning = FALSE}
+poly_rec <- recipe(capture_rate ~ attack + defense + hp + sp_attack + sp_defense + speed + type1 + generation + is_legendary + has_sturdy + has_swift_swim + has_keen_eye + has_chlorophyll + has_levitate, data = pokemon_train) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_poly(all_numeric_predictors(), degree = tune())
+
+#step_poly(sp_attack, degree = 2) %>% 
+ # step_poly(defense, degree = 2) %>% 
+  #step_poly(sp_defense, degree = 2) %>% 
+#  step_poly(hp, degree = 2) %>% 
+ # step_poly(speed, degree = 2)
+
+lm_spec <- linear_reg() %>% 
+  set_mode("regression") %>% 
+  set_engine("lm")
+
+poly_wf <- workflow() %>% 
+  add_model(lm_spec) %>% 
+  add_recipe(poly_rec)
+
+degree_grid <- grid_regular(degree(range = c(1,5)), levels = 5)
+
+tune_res3 <- tune_grid(
+  poly_wf,
+  resamples = pokemon_folds,
+  grid = degree_grid
+)
+autoplot(tune_res3)
+```
+
+### KNN  
+```{r}
+knn_model <- nearest_neighbor(
+  neighbors = tune(),
+  mode = "regression") %>% 
+  set_engine("kknn") 
+
+knn_workflow <- workflow() %>% 
+  add_model(knn_model) %>% 
+  add_recipe(pokemon_recipe)
+
+knn_parameters <- parameters(knn_model)
+
+knn_grd <- grid_regular(knn_parameters, levels = 5)
+
+knn_tune <- tune_grid(
+    knn_workflow,
+    resamples = pokemon_folds,
+    grid = knn_grd
+  )
+```
+
+```{r}
+best_knn <- select_best(knn_tune, metric = "rmse")
+knn_final <- finalize_workflow(knn_workflow, best_knn)
+knn_final_fit <- fit_resamples(knn_final, resamples = pokemon_folds)
+```
+
+
+```{r}
+collect_metrics(knn_final_fit)
+```
+
+
+
+
+
 
 
 
