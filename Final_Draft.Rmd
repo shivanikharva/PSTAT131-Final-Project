@@ -1,0 +1,102 @@
+---
+title: "Predicting the Capture Rate of Pokemon"
+subtitle: "PSTAT 131 Final Project"
+author: "Shivani Kharva"
+date: "2022-12-06"
+output:
+  html_document:
+    code_folding: hide
+    toc: true
+---
+
+## Introduction
+
+The purpose of this project is to develop a model that will predict the capture rate of a Pokemon.
+
+### What Are Pokemon?
+
+Pokemon (or "pocket monsters") are creatures from the Japanese Nintendo video game, Pokemon. Pokemon is a role-playing game in which players play as trainers who capture the Pokemon using Poke Balls and train them to compete in battles with other trainers. As they train and gain more experience through battle, Pokemon evolve and grow stronger. There are over 800 Pokemon with 18 types (i.e. fire, water, etc,), and they have numerous abilities (both common and unique).
+
+### What Are We Trying to Do?
+
+However, a question I'd like to pose is "How hard is to capture a Pokemon in the first place depending on their existing statistics?" It seems quite reasonable to hypothesize that a Pokemon's capture rate would vary depending on variables like their type, base statistics, generation, etc. So, I would like to test if it is possible to develop a model that can predict the capture rate of a Pokemon based on those qualities.
+
+### Why?
+
+Players, including me, are often only able to see the aforementioned qualities of a Pokemon and not their actual capture rate. So, it may be useful to have a specific model that can accurately predict the capture rate of a Pokemon so a player may see how difficult it may be to capture that Pokemon. The player can then adjust their strategy if a Pokemon is harder to catch by using more advanced equipment, such as using an Ultra Ball instead of a Poke Ball or giving the Pokemon a fruit before attempting to capture them to slightly lower their guard. So, let's see if the variation in the capture rate of a specific Pokemon can be explained by these qualities!
+
+## Loading Packages and Data
+
+Let's see what data we're currently working with!
+
+```{r, message = FALSE}
+# Loading all necessary packages
+library(tidyverse)
+library(dplyr)
+library(tidymodels)
+library(readr)
+library(kknn)
+
+# Assigning the data to a variable
+pokemon <- read_csv("data/pokemon.csv")
+tidymodels_prefer()
+
+# Setting the seed
+set.seed(0124)
+```
+
+## Loading and Exploring the Raw Data
+
+```{r}
+# Calling head() to see the first few rows
+head(pokemon)
+```
+
+This data was taken from the Kaggle data set, "[Pokemon Stats Dataset](https://www.kaggle.com/datasets/hasanarcas/pokemon-stats-dataset)," and it was scraped from the [official Pokemon database](https://pokemondb.net/pokedex/all) by user Hasan Arcas.  
+
+```{r}
+# Calling dim() to see how many rows and columns
+dim(pokemon)
+```
+
+The data set contains 801 rows and 41 columns. This means we have 801 Pokemon and 41 variables. One of those variables, `capture_rate`, is our response, but that leaves us with 40 predictor variables! We're definitely going to have to narrow that down!  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Sources  
+
+
+
+
+
