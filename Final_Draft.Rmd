@@ -36,6 +36,7 @@ library(dplyr)
 library(tidymodels)
 library(readr)
 library(kknn)
+library(dplyr)
 
 # Assigning the data to a variable
 pokemon <- read_csv("data/pokemon.csv")
@@ -45,7 +46,7 @@ tidymodels_prefer()
 set.seed(0124)
 ```
 
-## Loading and Exploring the Raw Data
+## Loading, Exploring, and Cleaning the Raw Data
 
 ```{r}
 # Calling head() to see the first few rows
@@ -60,6 +61,31 @@ dim(pokemon)
 ```
 
 The data set contains 801 rows and 41 columns. This means we have 801 Pokemon and 41 variables. One of those variables, `capture_rate`, is our response, but that leaves us with 40 predictor variables! We're definitely going to have to narrow that down!  
+
+From the data, each of the variables that specify each Pokemon's skill against a certain type of Pokemon (i.e. `against_bug`, `against_dark`, etc.) do not appear to be as relevant as other attributes in deciding whether specifc features about a Pokemon affect its capture rate. We can also assume that the `attack` variable gives us an overall estimate of each Pokemon's attack skill so we would not need to go into such great detail as finding out how the Pokemon perform against every other type of Pokemon. For that reason, these 18 columns can be dropped.  
+
+At first, it seems that the `classification` variable may be helpful; however, let us see how many unique classifications of a Pokemon there are.
+
+```{r}
+pokemon %>%
+  distinct(classfication) %>%
+  count()
+```
+
+There are 588 unique classifications! That seems a little too high for our analysis so we will just stick to using the `type` of the Pokemon instead.
+
+Furthermore, for the `abilities` variable, we can see that there is no set amount for how many abilities a Pokemon has or a measure to figure out which abilities are more powerful than others. For these reasons, it may be best to avoid including this column into our analysis.
+
+Some other variables must also be taken out as they do not seem as if they would reveal any more information relevant to our analysis based on substantive knowledge: `weight_kg`, `pokedex_number`, `percentage_male`, `japanese_name`, `base_happiness`, `base_egg_steps`, `experience_growth`, and `height_m`.  
+
+Now, let's filter out all those unwanted variables!!    
+
+```{r}
+# Selecting only the variables we want
+pokemon <- pokemon %>% 
+  select(c("abilities", "attack", "base_total", "capture_rate", "defense", "hp", "name", "sp_attack", "sp_defense", "speed", "type1", "generation", "is_legendary"))
+head(pokemon)
+```
 
 
 
