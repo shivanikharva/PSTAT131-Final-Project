@@ -6,6 +6,17 @@ library(tidymodels)
 library(readr)
 library(kknn)
 library(janitor)
+library(ISLR)
+library(discrim)
+library(poissonreg)
+library(glmnet)
+library(corrr)
+library(corrplot)
+library(randomForest)
+library(xgboost)
+library(rpart.plot)
+library(vip)
+library(ranger)
 # Assigning the data to a variable
 pokemon <- read_csv("data/pokemon.csv")
 tidymodels_prefer()
@@ -391,6 +402,112 @@ elastic_final_fit <- fit_resamples(elastic_final, resamples = pokemon_folds)
 
 collect_metrics(elastic_final_fit)
 ```
+
+```{r}
+# Setting up random forest model with specified tuning parameters and engine
+rf_spec <- rand_forest(mtry = tune(), trees = tune(), min_n = tune()) %>% 
+  set_engine("ranger", importance = "impurity") %>% 
+  set_mode("regression")
+
+# Setting up random forest workflow
+rf_workflow <- workflow() %>% 
+  add_recipe(pokemon_recipe) %>% 
+  add_model(rf_spec)
+
+# Creating a regular grid with 8 levels each
+rf_parameter_grid <- grid_regular(mtry(range = c(1, 19)), trees(range = c(200,1000)), min_n(range = c(5,20)), levels = 8)
+```
+
+```{r, eval = FALSE}
+# Tuning the model with roc_auc as a metric
+rf_tune_res <- tune_grid(
+  rf_workflow,
+  resamples = pokemon_folds,
+  grid = rf_parameter_grid
+)
+
+# Saving the fit
+write_rds(rf_tune_res, file = "rf.rds")
+```
+
+
+```{r}
+# Loading in the random forest
+rf_tuned <- read_rds(file = "rf.rds")
+
+# Producing autoplot of results
+autoplot(rf_tuned)
+```
+
+```{r}
+# Finding roc_auc of best performing random forest model on folds
+rf_best_roc_auc <- rf_tuned %>% 
+  collect_metrics() %>% 
+  arrange(desc(mean)) %>% 
+  head(1)
+
+rf_best_roc_auc
+```
+
+```{r}
+best_rf <- select_best(rf_tuned)
+rf_final_workflow <- finalize_workflow(rf_workflow, best_rf)
+rf_final_fit <- fit(rf_final_workflow, data = pokemon_train)
+
+rf_final_fit %>% 
+  extract_fit_engine() %>% 
+  vip()
+```
+
+### BOOSTED TREE
+```{r}
+# Setting up boosted tree model
+boosted_spec <- boost_tree(trees = tune()) %>%
+  set_engine("xgboost") %>%
+  set_mode("regression")
+
+# Setting up boosted trees workflow
+boosted_workflow <- workflow() %>% 
+  add_recipe(pokemon_recipe) %>% 
+  add_model(boosted_spec)
+
+# Creating regular grid
+boosted_grid <- grid_regular(trees(range = c(10, 2000)), levels = 10)
+```
+
+```{r, eval = FALSE}
+# Tuning and specifying roc_auc
+boosted_tune_res <- tune_grid(
+  boosted_workflow,
+  resamples = pokemon_folds,
+  grid = boosted_grid
+)
+
+# Saving the fit
+write_rds(boosted_tune_res, file = "boosted.rds")
+```
+
+```{r}
+# Loading the fit
+boosted_tuned <- read_rds(file = "boosted.rds")
+
+# Printing autoplot of results
+autoplot(boosted_tuned)
+```
+
+```{r}
+# Finding roc_auc of best performing boosted tree model on folds
+boosted_best_roc_auc <- boosted_tuned %>% 
+  collect_metrics() %>% 
+  arrange(desc(mean)) %>% 
+  head(1)
+
+boosted_best_roc_auc
+```
+
+
+
+
 
 
 
