@@ -167,6 +167,15 @@ pokemon_data$has_levitate <- as.factor(pokemon_data$has_levitate)
 ```
 
 ```{r}
+ggplot(pokemon_data, aes(capture_rate)) + 
+  geom_bar(aes(fill = is_legendary))
+
+ggplot(pokemon_data, aes(capture_rate)) + 
+  geom_bar(aes(fill = generation))
+```
+
+
+```{r}
 summary(pokemon_data)
 ```
 
@@ -294,7 +303,7 @@ collect_metrics(lasso_final_fit)
 poly_rec <- pokemon_recipe %>% 
   step_poly(attack, defense, hp, sp_attack, sp_defense, speed, degree = tune())
 
-ggplot(pokemon_train, aes(y = type1)) + geom_bar()
+#ggplot(pokemon_train, aes(y = type1)) + geom_bar()
 
 #step_poly(sp_attack, degree = 2) %>% 
  # step_poly(defense, degree = 2) %>% 
@@ -443,8 +452,7 @@ autoplot(rf_tuned)
 # Finding roc_auc of best performing random forest model on folds
 rf_best_roc_auc <- rf_tuned %>% 
   collect_metrics() %>% 
-  arrange(desc(mean)) %>% 
-  head(1)
+  arrange(mean)
 
 rf_best_roc_auc
 ```
@@ -499,8 +507,7 @@ autoplot(boosted_tuned)
 # Finding roc_auc of best performing boosted tree model on folds
 boosted_best_roc_auc <- boosted_tuned %>% 
   collect_metrics() %>% 
-  arrange(desc(mean)) %>% 
-  head(1)
+  arrange((mean))
 
 boosted_best_roc_auc
 ```

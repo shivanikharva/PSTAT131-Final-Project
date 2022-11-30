@@ -27,42 +27,50 @@ Players, including me, are often only able to see the aforementioned qualities o
 
 ## Loading Packages and Data
 
-Let's see what data we're currently working with!
-
-```{r, message = FALSE}
+```{r, message = FALSE, warning = FALSE}
 # Loading all necessary packages
 library(tidyverse)
 library(dplyr)
 library(tidymodels)
 library(readr)
 library(kknn)
-library(dplyr)
+library(janitor)
+library(ISLR)
+library(discrim)
+library(poissonreg)
+library(glmnet)
+library(corrr)
+library(corrplot)
+library(randomForest)
+library(xgboost)
+library(rpart.plot)
+library(vip)
+library(ranger)
 
 # Assigning the data to a variable
 pokemon <- read_csv("data/pokemon.csv")
 tidymodels_prefer()
-
-# Setting the seed
 set.seed(0124)
-```
 
-## Loading, Exploring, and Cleaning the Raw Data
-
-```{r}
 # Calling head() to see the first few rows
 head(pokemon)
 ```
 
-This data was taken from the Kaggle data set, "[Pokemon Stats Dataset](https://www.kaggle.com/datasets/hasanarcas/pokemon-stats-dataset)," and it was scraped from the [official Pokemon database](https://pokemondb.net/pokedex/all) by user Hasan Arcas.  
+
+This data was taken from the Kaggle data set, "[Pokemon Stats Dataset](https://www.kaggle.com/datasets/hasanarcas/pokemon-stats-dataset)," and it was scraped from the [official Pokemon database](https://pokemondb.net/pokedex/all) by user Hasan Arcas.
+
+## Exploring and Cleaning the Raw Data
+
+Let's mess around with the data a little bit to see what we're currently working with!  
 
 ```{r}
 # Calling dim() to see how many rows and columns
 dim(pokemon)
 ```
 
-The data set contains 801 rows and 41 columns. This means we have 801 Pokemon and 41 variables. One of those variables, `capture_rate`, is our response, but that leaves us with 40 predictor variables! We're definitely going to have to narrow that down!  
+The data set contains 801 rows and 41 columns. This means we have 801 Pokemon and 41 variables. One of those variables, `capture_rate`, is our response, but that leaves us with 40 predictor variables! We're definitely going to have to narrow that down!
 
-From the data, each of the variables that specify each Pokemon's skill against a certain type of Pokemon (i.e. `against_bug`, `against_dark`, etc.) do not appear to be as relevant as other attributes in deciding whether specifc features about a Pokemon affect its capture rate. We can also assume that the `attack` variable gives us an overall estimate of each Pokemon's attack skill so we would not need to go into such great detail as finding out how the Pokemon perform against every other type of Pokemon. For that reason, these 18 columns can be dropped.  
+From the data, each of the variables that specify each Pokemon's skill against a certain type of Pokemon (i.e. `against_bug`, `against_dark`, etc.) do not appear to be as relevant as other attributes in deciding whether specifc features about a Pokemon affect its capture rate. We can also assume that the `attack` variable gives us an overall estimate of each Pokemon's attack skill so we would not need to go into such great detail as finding out how the Pokemon perform against every other type of Pokemon. For that reason, these 18 columns can be dropped.
 
 At first, it seems that the `classification` variable may be helpful; however, let us see how many unique classifications of a Pokemon there are.
 
@@ -76,53 +84,40 @@ There are 588 unique classifications! That seems a little too high for our analy
 
 Furthermore, for the `abilities` variable, we can see that there is no set amount for how many abilities a Pokemon has or a measure to figure out which abilities are more powerful than others. For these reasons, it may be best to avoid including this column into our analysis.
 
-Some other variables must also be taken out as they do not seem as if they would reveal any more information relevant to our analysis based on substantive knowledge: `weight_kg`, `pokedex_number`, `percentage_male`, `japanese_name`, `base_happiness`, `base_egg_steps`, `experience_growth`, and `height_m`.  
+The `base_egg_steps` variable is a variable not used in the original Pokemon games so, to keep the data consistent with the game it was taken from, this variable should also be omitted.
 
-Now, let's filter out all those unwanted variables!!    
+Finally, `pokedex_number` and `japanese_name` are unique to each Pokemon and are mainly used to identify the Pokemon; however, since we already have the `name` variable, it would not be useful to include these variables.
+
+Now, let's filter out all those unwanted variables!!
 
 ```{r}
 # Selecting only the variables we want
 pokemon <- pokemon %>% 
-  select(c("abilities", "attack", "base_total", "capture_rate", "defense", "hp", "name", "sp_attack", "sp_defense", "speed", "type1", "generation", "is_legendary"))
+  select(c("abilities", "attack", "base_happiness",  "base_total", "capture_rate", "defense", "experience_growth", "height_m", "percentage_male", "hp", "name", "sp_attack", "sp_defense", "speed", "type1", "weight_kg", "generation", "is_legendary")) %>% 
+  clean_names()
 head(pokemon)
 ```
 
+Upon further inspection, we can see that our outcome, `capture_rate`, is actually a character variable, which is not what we want. By looking into the values, we see that one of the Pokemon, Minior, actually has two capture rates.  
+
+```{r}
+# Finding which Pokemon has a character capture rate
+filter(pokemon, capture_rate %in% c("30 (Meteorite)255 (Core)"))
+```
+
+By looking at [Bulbapedia](https://bulbapedia.bulbagarden.net/wiki/Minior_(Pok%C3%A9mon)), a community Pokemon encyclopedia, we can see that Minior has a relatively low capture rate at 30 when it is "Meteorite," meaning its shell has not been broken. However, once Minior's shell is broken ("Core"), the Pokemon shoots up to a capture rate of 255, which is the highest capture rate there is. Therefore, it would make sense to keep the capture rate of Minior when it is still Meteorite.   
+
+```{r}
+# Changing Minior to capture rate 30
+pokemon[pokemon$name=="Minior", "capture_rate"] <- "30"
+
+# Making capture_rate an integer
+pokemon$capture_rate <- as.integer(pokemon$capture_rate)
+```
+
+Now our outcome is an integer we can use in regression!  
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-### Sources  
-
-
-
-
-
+### Sources
