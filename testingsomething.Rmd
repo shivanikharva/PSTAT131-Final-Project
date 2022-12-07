@@ -48,20 +48,15 @@ pokemon_data$has_levitate <- as.factor(pokemon_data$has_levitate)
 pokemon_split <- initial_split(pokemon_data, prop = 0.7, strata = capture_rate)
 pokemon_train <- training(pokemon_split)
 pokemon_test <- testing(pokemon_split)
+
+#sd(pokemon_train$capture_rate)
 ```
 
 ```{r}
 # Creating recipe
-pokemon_recipe <- recipe(capture_rate ~ base_total + base_happiness + experience_growth + height_m + percentage_male + weight_kg + type1 + generation + is_legendary + has_sturdy + has_swift_swim + has_keen_eye + has_chlorophyll + has_levitate, data = pokemon_train) %>% 
-  # imputing percentage male
-  step_impute_linear(percentage_male, impute_with = imp_vars(base_total, base_happiness, experience_growth, type1, generation, is_legendary, has_sturdy, has_swift_swim, has_keen_eye, has_chlorophyll, has_levitate)) %>% 
-  # imputing height
-  step_impute_linear(height_m, impute_with = imp_vars(base_total, base_happiness, experience_growth, percentage_male, type1, generation, is_legendary, has_sturdy, has_swift_swim, has_keen_eye, has_chlorophyll, has_levitate)) %>% 
-  # imputing weight
-  step_impute_linear(weight_kg, impute_with = imp_vars(base_total, base_happiness, experience_growth, height_m, percentage_male, type1, generation, is_legendary, has_sturdy, has_swift_swim, has_keen_eye, has_chlorophyll, has_levitate)) %>% 
-  step_other(type1) %>% 
+pokemon_recipe <- recipe(capture_rate ~ base_total + is_legendary, data = pokemon_train) %>% 
   # dummy coding nominal variables
-  step_dummy(generation, is_legendary, type1, has_sturdy, has_swift_swim, has_keen_eye, has_chlorophyll, has_levitate) %>% 
+  step_dummy(is_legendary) %>% 
   # normalizing
   step_center(all_predictors()) %>% 
   step_scale(all_predictors())
@@ -131,7 +126,9 @@ collect_metrics(poly_final_fit)
 
 ```{r}
 # Setting up boosted tree model
-boosted_spec <- boost_tree(trees = tune()) %>%
+boosted_spec <- boost_tree(trees = tune(),
+                          learn_rate = tune(),
+                          min_n = tune()) %>%
   set_engine("xgboost") %>%
   set_mode("regression")
 
@@ -141,7 +138,7 @@ boosted_workflow <- workflow() %>%
   add_model(boosted_spec)
 
 # Creating regular grid
-boosted_grid <- grid_regular(trees(range = c(10, 2000)), levels = 10)
+boosted_grid <- grid_regular(trees(range = c(5, 200)), learn_rate(range = c(0.1,1), trans = identity_trans()), min_n(range = c(40, 60)), levels = 2)
 ```
 
 ```{r, eval = FALSE}
@@ -153,12 +150,12 @@ boosted_tune_res <- tune_grid(
 )
 
 # Saving the fit
-write_rds(boosted_tune_res, file = "boosted_2.rds")
+write_rds(boosted_tune_res, file = "boosted_3.rds")
 ```
 
 ```{r}
 # Loading the fit
-boosted_tuned <- read_rds(file = "boosted.rds")
+boosted_tuned <- read_rds(file = "boosted_3.rds")
 
 # Printing autoplot of results
 autoplot(boosted_tuned)

@@ -188,13 +188,13 @@ pokemon_test <- testing(pokemon_split)
 
 ```{r}
 # Creating recipe
-pokemon_recipe <- recipe(capture_rate ~ attack + defense + hp + sp_attack + sp_defense + speed + base_happiness + experience_growth + height_m + percentage_male + weight_kg + type1 + generation + is_legendary + has_sturdy + has_swift_swim + has_keen_eye + has_chlorophyll + has_levitate, data = pokemon_train) %>% 
+pokemon_recipe <- recipe(capture_rate ~ base_total + base_happiness + experience_growth + height_m + percentage_male + weight_kg + type1 + generation + is_legendary + has_sturdy + has_swift_swim + has_keen_eye + has_chlorophyll + has_levitate, data = pokemon_train) %>% 
   # imputing percentage male
-  step_impute_linear(percentage_male, impute_with = imp_vars(attack, defense, sp_attack, sp_defense, speed, base_happiness, experience_growth, type1, generation, is_legendary, has_sturdy, has_swift_swim, has_keen_eye, has_chlorophyll, has_levitate)) %>% 
+  step_impute_linear(percentage_male, impute_with = imp_vars(base_total, base_happiness, experience_growth, type1, generation, is_legendary, has_sturdy, has_swift_swim, has_keen_eye, has_chlorophyll, has_levitate)) %>% 
   # imputing height
-  step_impute_linear(height_m, impute_with = imp_vars(attack, defense, sp_attack, sp_defense, speed, base_happiness, experience_growth, percentage_male, type1, generation, is_legendary, has_sturdy, has_swift_swim, has_keen_eye, has_chlorophyll, has_levitate)) %>% 
+  step_impute_linear(height_m, impute_with = imp_vars(base_total, base_happiness, experience_growth, type1, generation, is_legendary, has_sturdy, has_swift_swim, has_keen_eye, has_chlorophyll, has_levitate)) %>% 
   # imputing weight
-  step_impute_linear(weight_kg, impute_with = imp_vars(attack, defense, sp_attack, sp_defense, speed, base_happiness, experience_growth, height_m, percentage_male, type1, generation, is_legendary, has_sturdy, has_swift_swim, has_keen_eye, has_chlorophyll, has_levitate)) %>% 
+  step_impute_linear(weight_kg, impute_with = imp_vars(base_total, base_happiness, experience_growth, type1, generation, is_legendary, has_sturdy, has_swift_swim, has_keen_eye, has_chlorophyll, has_levitate)) %>% 
   step_other(type1) %>% 
   # dummy coding nominal variables
   step_dummy(generation, is_legendary, type1, has_sturdy, has_swift_swim, has_keen_eye, has_chlorophyll, has_levitate) %>% 
@@ -259,7 +259,7 @@ autoplot(tune_res)
 ```
 
 ```{r}
-best_penalty <- select_best(tune_res, metric = "rsq")
+best_penalty <- select_best(tune_res, metric = 'rmse')
 
 ridge_final <- finalize_workflow(ridge_workflow, best_penalty)
 ridge_final_fit <- fit_resamples(ridge_final, resamples = pokemon_folds)
@@ -445,7 +445,7 @@ write_rds(rf_tune_res, file = "rf.rds")
 rf_tuned <- read_rds(file = "rf.rds")
 
 # Producing autoplot of results
-autoplot(rf_tuned)
+autoplot(rf_tuned, metric = 'rmse')
 ```
 
 ```{r}
