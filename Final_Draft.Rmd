@@ -157,7 +157,7 @@ pokemon_copy2 %>%
 
 The top 5 abilities appear to have varying capture rates that are not too close to one another. So, it might prove meaningful to include whether a Pokemon has one of the top 5 most common abilities or not. Now, we must add in 5 more variables indicating whether a Pokemon has each of these abilities or not.
 
-```{r}
+```{r, eval=FALSE}
 # Adding in 5 more variables indicating whether a Pokemon has each of the top 5 abilities or not
 pokemon <- pokemon %>% 
   mutate(has_sturdy = if_else(grepl("Sturdy", pokemon$abilities), 1, 0)) %>%
@@ -167,7 +167,7 @@ pokemon <- pokemon %>%
   mutate(has_levitate = if_else(grepl("Levitate", pokemon$abilities), 1, 0))
 
 # Creating a final dataset csv
-write_csv(pokemon, "pokemon_final.csv")
+write_csv(pokemon, "data/pokemon_final.csv")
 ```
 
 Our dataset is now tidied and ready for some exploratory data analysis!
@@ -180,7 +180,7 @@ First, we need to read and load in the data and convert any categorical variable
 
 ```{r, message = FALSE}
 # Reading in the data
-pokemon_data <- read_csv("pokemon_final.csv")
+pokemon_data <- read_csv("data/pokemon_final.csv")
 
 # Changing categorical variables to factors
 pokemon_data$type1 <- as.factor(pokemon_data$type1)
@@ -543,25 +543,25 @@ boosted_tune_res <- tune_grid(
 # No tuning
 
 # RIDGE REGRESSION
-write_rds(ridge_tune, file = "ridge.rds")
+write_rds(ridge_tune, file = "data/tuned_models/ridge.rds")
 
 # LASSO REGRESSION
-write_rds(lasso_tune, file = "lasso.rds")
+write_rds(lasso_tune, file = "data/tuned_models/lasso.rds")
 
 # POLYNOMIAL REGRESSION
-write_rds(poly_tuned, file = "poly.rds")
+write_rds(poly_tuned, file = "data/tuned_models/poly.rds")
 
 # K NEAREST NEIGHBORS
-write_rds(knn_tune, file = "knn.rds")
+write_rds(knn_tune, file = "data/tuned_models/knn.rds")
 
 # ELASTIC NET
-write_rds(elastic_tune, file = "elastic.rds")
+write_rds(elastic_tune, file = "data/tuned_models/elastic.rds")
 
 # RANDOM FOREST
-write_rds(rf_tune_res, file = "rf.rds")
+write_rds(rf_tune_res, file = "data/tuned_models/rf.rds")
 
 # BOOSTED TREES
-write_rds(boosted_tune_res, file = "boosted.rds")
+write_rds(boosted_tune_res, file = "data/tuned_models/boosted.rds")
 ```
 
 6. Load back in the saved files.
@@ -573,25 +573,25 @@ write_rds(boosted_tune_res, file = "boosted.rds")
 # No tuning
 
 # RIDGE REGRESSION
-ridge_tuned <- read_rds(file = "ridge.rds")
+ridge_tuned <- read_rds(file = "data/tuned_models/ridge.rds")
 
 # LASSO REGRESSION
-lasso_tuned <- read_rds(file = "lasso.rds")
+lasso_tuned <- read_rds(file = "data/tuned_models/lasso.rds")
 
 # POLYNOMIAL REGRESSION
-poly_tuned <- read_rds(file = "poly.rds")
+poly_tuned <- read_rds(file = "data/tuned_models/poly.rds")
 
 # K NEAREST NEIGHBORS
-knn_tuned <- read_rds(file = "knn.rds")
+knn_tuned <- read_rds(file = "data/tuned_models/knn.rds")
 
 # ELASTIC NET
-elastic_tuned <- read_rds(file = "elastic.rds")
+elastic_tuned <- read_rds(file = "data/tuned_models/elastic.rds")
 
 # RANDOM FOREST
-rf_tuned <- read_rds(file = "rf.rds")
+rf_tuned <- read_rds(file = "data/tuned_models/rf.rds")
 
 # BOOSTED TREES
-boosted_tuned <- read_rds(file = "boosted.rds")
+boosted_tuned <- read_rds(file = "data/tuned_models/boosted.rds")
 ```
 
 
@@ -605,49 +605,49 @@ boosted_tuned <- read_rds(file = "boosted.rds")
 # LINEAR REGRESSION 
 # No need to select the best fit as linear regression had no tuning -> we just fit the one linear regression model we fit
 lm_fit <- fit_resamples(lm_workflow, resamples = pokemon_folds)
-write_rds(lm_fit, file = "lm_final.rds")
+write_rds(lm_fit, file = "data/final_models/lm_final.rds")
 
 # RIDGE REGRESSION
 best_penalty <- select_best(ridge_tune, metric = 'rmse')
 ridge_final <- finalize_workflow(ridge_workflow, best_penalty)
 ridge_final_fit <- fit_resamples(ridge_final, resamples = pokemon_folds)
-write_rds(ridge_final_fit, file = "ridge_final.rds")
+write_rds(ridge_final_fit, file = "data/final_models/ridge_final.rds")
 
 # LASSO REGRESSION
 best_lasso_penalty <- select_best(tune_res2, metric = "rmse")
 lasso_final <- finalize_workflow(lasso_workflow, best_lasso_penalty)
 lasso_final_fit <- fit_resamples(lasso_final, resamples = pokemon_folds)
-write_rds(lasso_final_fit, file = "lasso_final.rds")
+write_rds(lasso_final_fit, file = "data/final_models/lasso_final.rds")
 
 # POLYNOMIAL REGRESSION
 best_poly<- select_best(poly_tuned, metric = "rmse")
 poly_final <- finalize_workflow(poly_wf, best_poly)
 poly_final_fit <- fit_resamples(poly_final, resamples = pokemon_folds)
-write_rds(poly_final_fit, file = "poly_final.rds")
+write_rds(poly_final_fit, file = "data/final_models/poly_final.rds")
 
 # K NEAREST NEIGHBORS
 best_knn <- select_best(knn_tune, metric = "rmse")
 knn_final <- finalize_workflow(knn_workflow, best_knn)
 knn_final_fit <- fit_resamples(knn_final, resamples = pokemon_folds)
-write_rds(knn_final_fit, file = "knn_final.rds")
+write_rds(knn_final_fit, file = "data/final_models/knn_final.rds")
 
 # ELASTIC NET
 best_elastic <- select_best(elastic_tune, metric = "rmse")
 elastic_final <- finalize_workflow(elastic_workflow, best_elastic)
 elastic_final_fit <- fit_resamples(elastic_final, resamples = pokemon_folds)
-write_rds(elastic_final_fit, file = "elastic_final.rds")
+write_rds(elastic_final_fit, file = "data/final_models/elastic_final.rds")
 
 # RANDOM FOREST
 best_rf <- select_best(rf_tuned)
 rf_final_workflow <- finalize_workflow(rf_workflow, best_rf)
 rf_final_fit <- fit_resamples(rf_final_workflow, resamples = pokemon_folds)
-write_rds(rf_final_fit, file = "rf_final.rds")
+write_rds(rf_final_fit, file = "data/final_models/rf_final.rds")
 
 # BOOSTED TREES
 best_boosted <- select_best(boosted_tuned)
 boosted_final_workflow <- finalize_workflow(boosted_workflow, best_boosted)
 boosted_final_fit <- fit_resamples(boosted_final_workflow, resamples = pokemon_folds)
-write_rds(boosted_final_fit, file = "boosted_final.rds")
+write_rds(boosted_final_fit, file = "data/final_models/boosted_final.rds")
 ```
 
 8. Load in each of the best models and collect the RMSE's of each of the best model fits for comparison with one another.    
@@ -657,35 +657,35 @@ write_rds(boosted_final_fit, file = "boosted_final.rds")
 # slice() to only collect the RMSE and not R squared
 
 # LINEAR REGRESSION 
-lm_final_fit <- read_rds(file = "lm_final.rds")
+lm_final_fit <- read_rds(file = "data/final_models/lm_final.rds")
 lm_rmse <- collect_metrics(lm_final_fit) %>% slice(1)
 
 # RIDGE REGRESSION
-ridge_final_fit <- read_rds(file = "ridge_final.rds")
+ridge_final_fit <- read_rds(file = "data/final_models/ridge_final.rds")
 ridge_rmse <- collect_metrics(ridge_final_fit) %>% slice(1)
 
 # LASSO REGRESSION
-lasso_final_fit <- read_rds(file = "lasso_final.rds")
+lasso_final_fit <- read_rds(file = "data/final_models/lasso_final.rds")
 lasso_rmse <- collect_metrics(lasso_final_fit) %>% slice(1)
 
 # POLYNOMIAL REGRESSION
-poly_final_fit <- read_rds(file = "poly_final.rds")
+poly_final_fit <- read_rds(file = "data/final_models/poly_final.rds")
 poly_rmse <- collect_metrics(poly_final_fit) %>% slice(1)
 
 # K NEAREST NEIGHBORS
-knn_final_fit <- read_rds(file = "knn_final.rds")
+knn_final_fit <- read_rds(file = "data/final_models/knn_final.rds")
 knn_rmse <- collect_metrics(knn_final_fit) %>% slice(1)
 
 # ELASTIC NET
-elastic_final_fit <- read_rds(file = "elastic_final.rds")
+elastic_final_fit <- read_rds(file = "data/final_models/elastic_final.rds")
 elastic_rmse <- collect_metrics(elastic_final_fit) %>% slice(1)
 
 # RANDOM FOREST
-rf_final_fit <- read_rds(file = "rf_final.rds")
+rf_final_fit <- read_rds(file = "data/final_models/rf_final.rds")
 rf_rmse <- collect_metrics(rf_final_fit) %>% slice(1)
 
 # BOOSTED TREES
-boosted_final_fit <- read_rds(file = "boosted_final.rds")
+boosted_final_fit <- read_rds(file = "data/final_models/boosted_final.rds")
 boosted_rmse <- collect_metrics(boosted_final_fit) %>% slice(1)
 ```
 
@@ -740,42 +740,77 @@ For the boosted trees, we tuned the learning rate, number of trees, and minimal 
 autoplot(rf_tuned, metric = 'rmse')
 ```
 
-For the random forest, 
+For the random forest, we tuned the the minimal node size, the number of randomly selected predictors, and the number of trees. The number of trees does not seem to have much effect on the performance of the model. The minimal node size does not appear to have a huge effect on the performance, but the smaller values of `min_n` appear to have slightly lower RMSE values (at least judging by the starting point). The optimal node size appears to be at 5 (which lines up with the aforementioned observation). The number of predictors appears to have a greatest effect on performance. From the plots, it appears that, overall, a greater number of predictors renders a better performance. Actually, it seems that including all 14 predictors gives the lowest RMSE here. Based on the RMSE values in the plots, this model definitely performs the best!  
 
-# Results of the Best Model
+# Results of the Best Model  
 
-```{r, eval = FALSE}
+## Performance on the Folds  
+
+So, the random forest performed the best out of all 8 of our models. But which tuned parameters were chosen as the best random forest model?  
+
+```{r}
+# Collecting metrics on the tuned random forest and slicing the lowest RMSE
+rf_tuned %>% 
+  collect_metrics() %>% 
+  arrange(mean) %>% 
+  slice(513)
+```
+
+Random forest #40 with all 14 predictors, 657 trees, and a minimal node size of 5 performed the best with an RMSE of 43.79638!  
+
+## Fitting to Training Data  
+
+Now, we will take that best model from the tuned random forest and fit it to the training data. This will train that random forest one more time on the entire training data set.  
+
+```{r, eval = FALSE, warning = FALSE}
 # Fitting to the training data
 best_rf_train <- select_best(rf_tuned)
 rf_final_workflow_train <- finalize_workflow(rf_workflow, best_rf)
 rf_final_fit_train <- fit(rf_final_workflow, data = pokemon_train)
 
-write_rds(rf_final_fit, file = "rf_final_train.rds")
+# Save
+write_rds(rf_final_fit, file = "data/rf_final/rf_final_train.rds")
 ```
 
 ```{r}
-rf_final_fit_train <- read_rds(file = "rf_final_train.rds")
+# Reading in the random forest fit on the training data
+rf_final_fit_train <- read_rds(file = "data/rf_final/rf_final_train.rds")
 
-# VIP plot
+# Collecting the RMSE of the random forest fit on the training data
 rf_final_fit_train %>% 
-  extract_fit_engine() %>% 
-  vip()
+  collect_metrics() %>% 
+  slice(1)
+```
+
+The chosen random forest model had an RMSE of 43.95341 on the training data. This is quite close to the RMSE the model had on the folds.  
+
+## Testing the Model  
+
+Now, it's time to test our random forest model to see how it performs on data that it has not been trained on at all: the testing data set.  
+
+```{r, eval = FALSE}
+# Creating the predicted vs. actual value tibble
+pokemon_tibble <- predict(rf_final_fit_train, new_data = pokemon_test %>% select(-capture_rate))
+pokemon_tibble <- bind_cols(pokemon_tibble, pokemon_test %>% select(capture_rate))
+
+# Save
+write_rds(pokemon_tibble, file = "data/rf_final/final_model.rds")
 ```
 
 ```{r}
+# Load in final model
+pokemon_tibble <- read_rds(file = "data/rf_final/final_model.rds")
+
 # Indicating the desired metric
 pokemon_metric <- metric_set(rmse)
-
-# Creating the predicted vs. actual value tibble
-pokemon_tibble <- predict(rf_final_fit, new_data = pokemon_test %>% select(-capture_rate))
-pokemon_tibble <- bind_cols(pokemon_tibble, pokemon_test %>% select(capture_rate))
 
 # Collecting the rmse of the model on the testing data
 pokemon_tibble_metrics <- pokemon_metric(pokemon_tibble, truth = capture_rate, estimate = .pred)
 pokemon_tibble_metrics
+
 ```
 
-
+Our random forest actually performed slightly better on the testing set than on the training set and folds with an RMSE of 42.42378! 
 
 
 
