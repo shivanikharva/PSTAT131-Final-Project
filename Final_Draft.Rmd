@@ -810,7 +810,7 @@ pokemon_tibble_metrics
 
 ```
 
-Our random forest actually performed slightly better on the testing set than on the training set and folds with an RMSE of 42.42378! 
+Our random forest actually performed slightly better on the testing set than on the training set and folds with an RMSE of 42.42378!  
 
 
 
