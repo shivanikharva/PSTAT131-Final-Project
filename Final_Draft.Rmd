@@ -9,23 +9,25 @@ output:
     toc: true
 ---
 
-## Introduction
+# Introduction
 
 The purpose of this project is to develop a model that will predict the capture rate of a Pokemon.
 
-### What Are Pokemon?
+## What Are Pokemon?
 
 Pokemon (or "pocket monsters") are creatures from the Japanese Nintendo video game, Pokemon. Pokemon is a role-playing game in which players play as trainers who capture the Pokemon using Poke Balls and train them to compete in battles with other trainers. As they train and gain more experience through battle, Pokemon evolve and grow stronger. There are over 800 Pokemon with 18 types (i.e. fire, water, etc,), and they have numerous abilities (both common and unique).
 
-### What Are We Trying to Do?
+## What Are We Trying to Do?
 
 However, a question I'd like to pose is "How hard is to capture a Pokemon in the first place depending on their existing statistics?" It seems quite reasonable to hypothesize that a Pokemon's capture rate would vary depending on variables like their type, base statistics, generation, etc. So, I would like to test if it is possible to develop a model that can predict the capture rate of a Pokemon based on those qualities.
 
-### Why?
+## Why?
 
 Players, including me, are often only able to see the aforementioned qualities of a Pokemon and not their actual capture rate. So, it may be useful to have a specific model that can accurately predict the capture rate of a Pokemon so a player may see how difficult it may be to capture that Pokemon. The player can then adjust their strategy if a Pokemon is harder to catch by using more advanced equipment, such as using an Ultra Ball instead of a Poke Ball or giving the Pokemon a fruit before attempting to capture them to slightly lower their guard. So, let's see if the variation in the capture rate of a specific Pokemon can be explained by these qualities!
 
-## Loading Packages and Data
+# Loading Packages and Data
+
+First, let's load in all of our packages and the raw Pokemon data.
 
 ```{r, message = FALSE, warning = FALSE}
 # Loading all necessary packages
@@ -46,6 +48,7 @@ library(xgboost)
 library(rpart.plot)
 library(vip)
 library(ranger)
+library(tidytext)
 
 # Assigning the data to a variable
 pokemon <- read_csv("data/pokemon.csv")
@@ -56,12 +59,13 @@ set.seed(0124)
 head(pokemon)
 ```
 
-
 This data was taken from the Kaggle data set, "[Pokemon Stats Dataset](https://www.kaggle.com/datasets/hasanarcas/pokemon-stats-dataset)," and it was scraped from the [official Pokemon database](https://pokemondb.net/pokedex/all) by user Hasan Arcas.
 
-## Exploring and Cleaning the Raw Data
+# Exploring and Tidying the Raw Data
 
-Let's mess around with the data a little bit to see what we're currently working with!  
+## Variable Selection
+
+Let's mess around with the data a little bit to see what we're currently working with!
 
 ```{r}
 # Calling dim() to see how many rows and columns
@@ -75,6 +79,7 @@ From the data, each of the variables that specify each Pokemon's skill against a
 At first, it seems that the `classification` variable may be helpful; however, let us see how many unique classifications of a Pokemon there are.
 
 ```{r}
+# Checking how many unique classifications there are
 pokemon %>%
   distinct(classfication) %>%
   count()
@@ -88,24 +93,27 @@ The `base_egg_steps` variable is a variable not used in the original Pokemon gam
 
 Finally, `pokedex_number` and `japanese_name` are unique to each Pokemon and are mainly used to identify the Pokemon; however, since we already have the `name` variable, it would not be useful to include these variables.
 
-Now, let's filter out all those unwanted variables!!
+Now, let's filter out all those unwanted variables and our dataset will be ready for further tidying!
 
 ```{r}
 # Selecting only the variables we want
 pokemon <- pokemon %>% 
   select(c("abilities", "attack", "base_happiness",  "base_total", "capture_rate", "defense", "experience_growth", "height_m", "percentage_male", "hp", "name", "sp_attack", "sp_defense", "speed", "type1", "weight_kg", "generation", "is_legendary")) %>% 
   clean_names()
-head(pokemon)
 ```
 
-Upon further inspection, we can see that our outcome, `capture_rate`, is actually a character variable, which is not what we want. By looking into the values, we see that one of the Pokemon, Minior, actually has two capture rates.  
+## Tidying the Outcome
+
+Upon further inspection, we can see that our outcome, `capture_rate`, is actually a character variable, which is not what we want. By looking into the values, we see that one of the Pokemon, Minior, actually has two capture rates.
 
 ```{r}
 # Finding which Pokemon has a character capture rate
-filter(pokemon, capture_rate %in% c("30 (Meteorite)255 (Core)"))
+pokemon %>% 
+  filter(capture_rate %in% c("30 (Meteorite)255 (Core)")) %>% 
+  select(c(name, capture_rate))
 ```
 
-By looking at [Bulbapedia](https://bulbapedia.bulbagarden.net/wiki/Minior_(Pok%C3%A9mon)), a community Pokemon encyclopedia, we can see that Minior has a relatively low capture rate at 30 when it is "Meteorite," meaning its shell has not been broken. However, once Minior's shell is broken ("Core"), the Pokemon shoots up to a capture rate of 255, which is the highest capture rate there is. Therefore, it would make sense to keep the capture rate of Minior when it is still Meteorite.   
+By looking at [Bulbapedia](https://bulbapedia.bulbagarden.net/wiki/Minior_(Pok%C3%A9mon)), a community Pokemon encyclopedia, we can see that Minior has a relatively low capture rate at 30 when it is "Meteorite," meaning its shell has not been broken. However, once Minior's shell is broken ("Core"), the Pokemon shoots up to a capture rate of 255, which is the highest capture rate there is. Therefore, it would make sense to keep the capture rate of Minior when it is still Meteorite.
 
 ```{r}
 # Changing Minior to capture rate 30
@@ -113,11 +121,664 @@ pokemon[pokemon$name=="Minior", "capture_rate"] <- "30"
 
 # Making capture_rate an integer
 pokemon$capture_rate <- as.integer(pokemon$capture_rate)
+
+# Displaying the new row
+pokemon %>% 
+  filter(name %in% c("Minior")) %>% 
+  select(c(name, capture_rate))
 ```
 
-Now our outcome is an integer we can use in regression!  
+Now the capture rate for Minior is fixed and our outcome is an integer we can use in regression!
+
+## Tidying the Abilities Variable
+
+One last thing we need to do before our data is tidy the `abilities` variable because we currently have a column made up of lists of each Pokemon's abilities. However, it is not very useful to analyze 801 unique lists of abilities. It might be better to prioritize the abilities that are the most common among the Pokemon. Let's look at the top 5 most common abilities and their capture rates.
+
+```{r, warning = FALSE}
+# Creating a copy of the dataset to work with
+pokemon_copy <- pokemon
+
+# Splitting up the lists in the abilities column
+pokemon_copy$abilities <- pokemon_copy$abilities %>% 
+  str_split(pattern = "', '") %>% 
+  map(~ str_replace_all(string = ., pattern = "[[:punct:]]", ""))
+
+# Unnesting so the abilities are separate rows
+pokemon_copy2 <- pokemon_copy %>% 
+  unnest() 
+
+# Viewing the top 5 abilities by count and their capture rates
+pokemon_copy2 %>% 
+  group_by(abilities) %>%  
+  summarise(count = n(), capture_rate = mean(capture_rate)) %>% 
+  arrange(desc(count)) %>% 
+  head(5)
+```
+
+The top 5 abilities appear to have varying capture rates that are not too close to one another. So, it might prove meaningful to include whether a Pokemon has one of the top 5 most common abilities or not. Now, we must add in 5 more variables indicating whether a Pokemon has each of these abilities or not.
+
+```{r}
+# Adding in 5 more variables indicating whether a Pokemon has each of the top 5 abilities or not
+pokemon <- pokemon %>% 
+  mutate(has_sturdy = if_else(grepl("Sturdy", pokemon$abilities), 1, 0)) %>%
+  mutate(has_swift_swim = if_else(grepl("Swift Swim", pokemon$abilities), 1, 0)) %>% 
+  mutate(has_keen_eye = if_else(grepl("Keen Eye", pokemon$abilities), 1, 0)) %>% 
+  mutate(has_chlorophyll = if_else(grepl("Chlorophyll", pokemon$abilities), 1, 0)) %>% 
+  mutate(has_levitate = if_else(grepl("Levitate", pokemon$abilities), 1, 0))
+
+# Creating a final dataset csv
+write_csv(pokemon, "pokemon_final.csv")
+```
+
+Our dataset is now tidied and ready for some exploratory data analysis!
+
+# Exploratory Data Analysis
+
+## Loading Data and Converting Factors  
+
+First, we need to read and load in the data and convert any categorical variables to factors.
+
+```{r, message = FALSE}
+# Reading in the data
+pokemon_data <- read_csv("pokemon_final.csv")
+
+# Changing categorical variables to factors
+pokemon_data$type1 <- as.factor(pokemon_data$type1)
+pokemon_data$generation <- as.factor(pokemon_data$generation)
+pokemon_data$is_legendary <- as.factor(pokemon_data$is_legendary)
+pokemon_data$has_sturdy <- as.factor(pokemon_data$has_sturdy)
+pokemon_data$has_swift_swim <- as.factor(pokemon_data$has_swift_swim)
+pokemon_data$has_keen_eye <- as.factor(pokemon_data$has_keen_eye)
+pokemon_data$has_chlorophyll <- as.factor(pokemon_data$has_chlorophyll)
+pokemon_data$has_levitate <- as.factor(pokemon_data$has_levitate)
+
+# Loading the data
+head(pokemon_data)
+```
+
+## Missing Data  
+
+Before we move on to exploring the variables in our data, we must check for any missing data because that could potentially cause issues.  
+
+```{r}
+pokemon_data %>% 
+  summary()
+```
+
+We can see that `height_m`, `percentage_male`, and `weight_kg` all have missing values: 20, 98, and 20, respectively. It appears that the variables with missing data relate more so to the physical characteristics of the Pokemon and not as much to the capabilities of the Pokemon. Because these are not very high proportions of missing data, we can deal with this issue by imputing the missing values using a linear regression of our other variables. This will be done later in the recipe creation!   
+
+## Visual EDA  
+
+### Capture Rate  
+
+First, let's explore the distribution of our outcome, `capture_rate`.  
+
+```{r}
+# Distribution of capture rate
+ggplot(pokemon_data, aes(capture_rate)) +
+  geom_bar(fill='red3')
+```
+
+The possible values of `capture_rate` range from 0 to 255 and the `capture_rate` of the Pokemon in our data appears to range from 3 to 255. There is also a peak at about 45, meaning the most common capture rate for a Pokemon in our data is 45.  
+
+### Generation  
+
+The data contains 7 different generations of Pokemon. The generations contain Pokemon from each of the 7 generations of Pokemon games. This poses the question of whether there are specific generations that have higher capture rates overall than any other generations.    
+
+```{r}
+# Boxplot of generation vs. capture rate
+ggplot(pokemon, aes(x=generation, y=capture_rate, group=generation)) +
+  geom_boxplot(aes(fill = generation))
+```
+
+From this plot, we can see that the medians, maxima, minima, and first quartiles of the capture rates for each of the generations are the same or quite close to one another. However, the third quartile of generations 2, 5, and 7 appear to be less than the other generations. This does not seem as if it will make much different as the rest of the overall distribution is quite similar between generations. So, it appears that `capture_rate` does not vary much depending on specifically `generation` alone.  
+
+### Legendary Status  
+
+Legendary Pokemon are especially powerful Pokemon that players rarely encounter. From this definition, it seems likely that it would be harder to capture a Pokemon that is legendary than one that is not.  
+
+```{r}
+ggplot(pokemon_data, aes(capture_rate)) + 
+  geom_bar(aes(fill = is_legendary)) +
+  scale_fill_manual(values = c('red2', 'blue4'))
+```
+
+From the graph, we can see that, although there are still non-legendary Pokemon in the lower end of the capture rate, there are no legendary Pokemon with a capture rate above 50. Also, the lowest capture rate in our data, 3, is made up of almost all legendary Pokemon. It seems that legendary Pokemon have a lower capture rate than non-legendary Pokemon, which is what was expected.  
+
+### Correlation Plot  
+
+Now, let's explore the overall relationships between all of the continuous, non-missing variables using a correlation plot.  
+
+```{r}
+# Selecting only numeric values
+pokemon_numeric <- pokemon_data %>%
+  select_if(is.numeric)
+# Taking out variables with missing values as they will return NA
+pokemon_numeric <- pokemon_numeric[, !names(pokemon_numeric) %in% c("height_m", "weight_kg", "percentage_male")]
+
+# Correlation matrix
+pokemon_cor <- cor(pokemon_numeric)
+
+# Visualization of correlation matrix
+pokemon_corrplot <- corrplot(pokemon_cor, method = "number")
+```
+
+One relationship that stands out is the relatively strong negative correlation between `base_total` and `capture_rate` (-0.71), which indicates that it may be useful to use `base_total` in our analysis rather than the six individual battle statistics (we cannot use all of them because the battle statistics add up to the exact `base_total`). This relationship implies that, as a Pokemon has a higher total of battle statistics, it becomes more difficult to capture them (lower `capture_rate`).  
+
+Another apparent relationship is that all six battle statistics are moderately positively correlated with `base_total` and moderately negatively correlated with `capture_rate`. This implies that, as the battle statistics increase, so does their total, which makes sense as they add up to the `base_total`. Also, as the six battle statistics increase, the Pokemon becomes more difficult to capture (lower `capture_rate`). Since the battle statistics have a similar relationship with `capture_rate` as `base_total`, this further justifies using only `base_total` rather than the six individual battle statistics.  
+
+# Setting up for the Models  
+
+It's time to start fitting models to our data to see if we really can predict the capture rate of a Pokemon based on the predictors we have. However, we first have to set up our data by splitting it, creating the recipe, and creating folds for k-fold cross validation.  
+
+## Data Split  
+
+The first step we have to take before fitting any models is splitting our data into a training and testing set. The training set will be used to do just that: train our models. The testing set acts as a test in the sense that our models will not be able to train on that data. So, once we fit whichever model we decide is the "best" (usually based on lowest RMSE or root mean squared error for regression) to our testing set, we will see how it truly performs on new data. By splitting our data into testing and training sets, we avoid over-fitting because the model is not using all of the available data to learn. The split I have chosen is a 70/30 split, which means 70% of the data will go towards the training set and 30% of the data will go towards the testing set. This way, most of our data is being used to train the model; however, we still have an adequate amount of data to test the model on. Also, the split is stratified on the outcome variable, `capture_rate`, to ensure that both the training and the testing data have an equal distribution of `capture_rate`.  
+
+```{r}
+# Setting the seed for reproducibility
+set.seed(0124)
+
+# Splitting the data (70/30 split, stratify on capture rate)
+pokemon_split <- initial_split(pokemon_data, prop = 0.7, strata = capture_rate)
+pokemon_train <- training(pokemon_split)
+pokemon_test <- testing(pokemon_split)
+```
+
+Before we move on, we should verify that the data split correctly.  
+
+```{r}
+nrow(pokemon_train)/nrow(pokemon_data)
+nrow(pokemon_test)/nrow(pokemon_data)
+```
+
+The training set has about 70% of the data and the testing set has about 30% of the data. So, the data was split correctly between the training and testing sets.   
+
+## Recipe Creation  
+
+Throughout our analysis, we will be using essentially the same predictors, conditions, and outcome. So, we will create one universal recipe to use for all of our models (and slightly adjust this recipe if needed). Each model will take this recipe and work with it using the methods associated with that model.  
+
+We will be using the same 14 predictors: `base_total`, `base_happiness`, `experience_growth`, `height_m`, `percentage_male`, `weight_kg`, `type1`, `generation`, `is_legendary`, `has_sturdy`, `has_swift_swim`, `has_keen_eye`, `has_chlorophyll`, and `has_levitate`. As mentioned in the exploratory data analysis, it would be best to use `base_total` instead of the individual six battle statistics because it has a higher negative correlation with the outcome and also acts as a summary of each Pokemon's six battle statistics.  
+
+In order to deal with missingness, we will impute the missing data in `percentage_male`, `height_m`, and `weight_kg` using a linear regression of all of the other predictors in the recipe.  
+
+Since `type1` has 18 types, we will prioritize the types made up of the most Pokemon and group the rest of the Pokemon into type 'Other'.  
+
+We will make `type1`, `generation`, `is_legendary`, `has_sturdy`, `has_swift_swim`, `has_keen_eye`, `has_chlorophyll`, and `has_levitate` into dummy variables because they are categorical and not continous.  
+
+Finally, we normalize our variables by centering and scaling.  
+
+```{r}
+# Creating recipe
+pokemon_recipe <- recipe(capture_rate ~ base_total + base_happiness + experience_growth + height_m + percentage_male + weight_kg + type1 + generation + is_legendary + has_sturdy + has_swift_swim + has_keen_eye + has_chlorophyll + has_levitate, data = pokemon_train) %>% 
+  # imputing percentage male
+  step_impute_linear(percentage_male, impute_with = imp_vars(base_total, base_happiness, experience_growth, type1, generation, is_legendary, has_sturdy, has_swift_swim, has_keen_eye, has_chlorophyll, has_levitate)) %>% 
+  # imputing height
+  step_impute_linear(height_m, impute_with = imp_vars(base_total, base_happiness, experience_growth, type1, generation, is_legendary, has_sturdy, has_swift_swim, has_keen_eye, has_chlorophyll, has_levitate)) %>% 
+  # imputing weight
+  step_impute_linear(weight_kg, impute_with = imp_vars(base_total, base_happiness, experience_growth, type1, generation, is_legendary, has_sturdy, has_swift_swim, has_keen_eye, has_chlorophyll, has_levitate)) %>% 
+  # Only prioritizing top types of Pokemon
+  step_other(type1) %>% 
+  # dummy coding nominal variables
+  step_dummy(generation, is_legendary, type1, has_sturdy, has_swift_swim, has_keen_eye, has_chlorophyll, has_levitate) %>% 
+  # normalizing
+  step_center(all_predictors()) %>% 
+  step_scale(all_predictors())
+```
+
+## K-Fold Cross Validation  
+
+We will use k-fold stratified cross validation in order to train the data on 10 mini datasets (or folds) created using the training data. Since we will be essentially using 10 mini training/testing sets to train our data, this will give us a better estimate of each model's true performance. We stratify on the outcome, `capture_rate`, to make sure the data in each fold is not imbalanced.  
+
+```{r}
+# Creating folds
+pokemon_folds <- vfold_cv(pokemon_train, v = 10, strata = capture_rate)
+```
+
+# Model Building  
+
+It is now time to build our models! Since the models take a very long time to run, the results from each of the models has been saved to avoid rerunning the models every time. I have chosen Root Mean Squared Error (RMSE) as my metric because it works as an overall metric for all models. The RMSE is one of the most commonly used measures for evaluating the performance of regression models by showing how far the model's predictions are from the true values using Euclidian distance. Since RMSE measures distance, it is important that we normalize our data, which we did in the recipe. Also, I have fit 8 models to the Pokemon data; however, we will only be conducting further analysis on the 4 best-performing models. Let's get to building our models!  
+
+## Fitting the models  
+
+Each of the models had a very similar process. I will detail it below and include the code for each of the models under that step (however, the code will not be evaluated here to save time).  
+
+For each of the models, you must conduct these steps to fit them:   
+
+1. Set up the model by specifying the model you wish to fit, the parameters you want to tune, the engine the model comes from, and the mode (regression or classification) if necessary.  
+
+```{r, eval=FALSE, warning=FALSE, message=FALSE}
+# LINEAR REGRESSION 
+lm_model <- linear_reg() %>% 
+  set_engine("lm")
+
+# RIDGE REGRESSION
+# Tuning penalty and setting mixture to 0 to specify ridge
+ridge_spec <- linear_reg(mixture = 0, 
+                         penalty = tune()) %>% 
+  set_mode("regression") %>% 
+  set_engine("glmnet")
+
+# LASSO REGRESSION
+# Tuning penalty and setting mixture to 1 to specify lasso
+lasso_spec <- linear_reg(penalty = tune(), 
+                         mixture = 1) %>% 
+  set_mode("regression") %>% 
+  set_engine("glmnet")
+
+# POLYNOMIAL REGRESSION
+# Adjusting the recipe because the tuning parameter must be added in the recipe for polynomial regression
+# Tuning the degree
+poly_rec <- pokemon_recipe %>% 
+  step_poly(base_total, base_happiness, experience_growth, height_m, percentage_male, weight_kg, degree = tune())
+
+poly_spec <- linear_reg() %>% 
+  set_mode("regression") %>% 
+  set_engine("lm")
+
+# K NEAREST NEIGHBORS
+# Tuning the number of neighbors
+knn_model <- nearest_neighbor(neighbors = tune()) %>% 
+  set_mode("regression") %>% 
+  set_engine("kknn")
+
+# ELASTIC NET
+# Tuning penalty and mixture
+elastic_spec <- linear_reg(penalty = tune(), 
+                           mixture = tune()) %>% 
+  set_mode("regression") %>% 
+  set_engine("glmnet")
+
+# RANDOM FOREST
+# Tuning mtry (number of predictors), trees, and min_n (number of minimum values in each node)
+rf_spec <- rand_forest(mtry = tune(), 
+                       trees = tune(), 
+                       min_n = tune()) %>% 
+  set_engine("ranger", importance = "impurity") %>% 
+  set_mode("regression")
+
+# BOOSTED TREES
+# Tuning trees, learn_rate (the learning rate), and min_n
+boosted_spec <- boost_tree(trees = tune(),
+                           learn_rate = tune(),
+                           min_n = tune()) %>%
+  set_engine("xgboost") %>%
+  set_mode("regression")
+```
+
+2. Set up the workflow for the model and add the model and the recipe.  
+
+```{r, eval=FALSE, warning=FALSE, message=FALSE}
+# LINEAR REGRESSION 
+lm_workflow <- workflow() %>% 
+  add_model(lm_model) %>% 
+  add_recipe(pokemon_recipe)
+
+# RIDGE REGRESSION
+ridge_workflow <- workflow() %>% 
+  add_recipe(pokemon_recipe) %>% 
+  add_model(ridge_spec)
+
+# LASSO REGRESSION
+lasso_workflow <- workflow() %>% 
+  add_recipe(ridge_lasso_recipe) %>% 
+  add_model(lasso_spec)
+
+# POLYNOMIAL REGRESSION
+poly_wf <- workflow() %>% 
+  add_model(poly_spec) %>% 
+  add_recipe(poly_rec)
+
+# K NEAREST NEIGHBORS
+knn_workflow <- workflow() %>% 
+  add_model(knn_model) %>% 
+  add_recipe(pokemon_recipe)
+
+# ELASTIC NET
+elastic_workflow <- workflow() %>% 
+  add_recipe(pokemon_recipe) %>% 
+  add_model(elastic_spec)
+
+# RANDOM FOREST
+rf_workflow <- workflow() %>% 
+  add_recipe(pokemon_recipe) %>% 
+  add_model(rf_spec)
+
+# BOOSTED TREES
+boosted_workflow <- workflow() %>% 
+  add_recipe(pokemon_recipe) %>% 
+  add_model(boosted_spec)
+```
+
+3. Create a tuning grid to specify the ranges of the parameters you wish to tune as well as how many levels of each. 
+
+```{r, eval=FALSE, warning=FALSE, message=FALSE}
+# LINEAR REGRESSION 
+# No grid because no tuning parameters
+
+# RIDGE REGRESSION
+penalty_grid <- grid_regular(penalty(range = c(-5,5)), levels = 50)
+
+# LASSO REGRESSION
+# Same grid as ridge
+
+# POLYNOMIAL REGRESSION
+degree_grid <- grid_regular(degree(range = c(1,5)), levels = 5)
+
+# K NEAREST NEIGHBORS
+knn_grid <- grid_regular(neighbors(range = c(1,15)), levels = 5)
+
+# ELASTIC NET
+elastic_grid <- grid_regular(penalty(range = c(-5, 5)), mixture(range = c(0,1)), levels = 10)
+
+# RANDOM FOREST
+rf_parameter_grid <- grid_regular(mtry(range = c(1, 14)), trees(range = c(200,1000)), min_n(range = c(5,20)), levels = 8)
+
+# BOOSTED TREES
+boosted_grid <- grid_regular(trees(range = c(5, 200)), learn_rate(range = c(0.01,0.1), trans = identity_trans()), min_n(range = c(40, 60)), levels = 5)
+```
+
+4. Tune the model and specify the workflow, k-fold cross validation folds, and the tuning grid for our chosen parameters to tune. 
+
+```{r, eval=FALSE, warning=FALSE, message=FALSE}
+# LINEAR REGRESSION 
+# No tuning
+
+# RIDGE REGRESSION
+ridge_tune <- tune_grid(
+  ridge_workflow,
+  resamples = pokemon_folds,
+  grid = penalty_grid
+)
+
+# LASSO REGRESSION
+lasso_tune <- tune_grid(
+  lasso_workflow,
+  resamples = pokemon_folds,
+  grid = penalty_grid
+)
+
+# POLYNOMIAL REGRESSION
+poly_tuned <- tune_grid(
+  poly_wf,
+  resamples = pokemon_folds,
+  grid = degree_grid
+)
+
+# K NEAREST NEIGHBORS
+knn_tune <- tune_grid(
+    knn_workflow,
+    resamples = pokemon_folds,
+    grid = knn_grid
+)
+
+# ELASTIC NET
+elastic_tune <- tune_grid(
+  elastic_workflow,
+  resamples = pokemon_folds,
+  grid = elastic_grid
+)
+
+# RANDOM FOREST
+rf_tune_res <- tune_grid(
+  rf_workflow,
+  resamples = pokemon_folds,
+  grid = rf_parameter_grid
+)
+
+# BOOSTED TREES
+boosted_tune_res <- tune_grid(
+  boosted_workflow,
+  resamples = pokemon_folds,
+  grid = boosted_grid
+)
+```
+
+5. Save the tuned models to an RDS file to avoid rerunning the model.    
+
+```{r, eval=FALSE, warning=FALSE, message=FALSE}
+# write_rds() to save
+
+# LINEAR REGRESSION 
+# No tuning
+
+# RIDGE REGRESSION
+write_rds(ridge_tune, file = "ridge.rds")
+
+# LASSO REGRESSION
+write_rds(lasso_tune, file = "lasso.rds")
+
+# POLYNOMIAL REGRESSION
+write_rds(poly_tuned, file = "poly.rds")
+
+# K NEAREST NEIGHBORS
+write_rds(knn_tune, file = "knn.rds")
+
+# ELASTIC NET
+write_rds(elastic_tune, file = "elastic.rds")
+
+# RANDOM FOREST
+write_rds(rf_tune_res, file = "rf.rds")
+
+# BOOSTED TREES
+write_rds(boosted_tune_res, file = "boosted.rds")
+```
+
+6. Load back in the saved files.
+
+```{r, warning=FALSE, message=FALSE}
+# read_rds() to load back in
+
+# LINEAR REGRESSION 
+# No tuning
+
+# RIDGE REGRESSION
+ridge_tuned <- read_rds(file = "ridge.rds")
+
+# LASSO REGRESSION
+lasso_tuned <- read_rds(file = "lasso.rds")
+
+# POLYNOMIAL REGRESSION
+poly_tuned <- read_rds(file = "poly.rds")
+
+# K NEAREST NEIGHBORS
+knn_tuned <- read_rds(file = "knn.rds")
+
+# ELASTIC NET
+elastic_tuned <- read_rds(file = "elastic.rds")
+
+# RANDOM FOREST
+rf_tuned <- read_rds(file = "rf.rds")
+
+# BOOSTED TREES
+boosted_tuned <- read_rds(file = "boosted.rds")
+```
+
+
+7. Select the best tuned parameters for the model (based on RMSE), adjust the model workflow to include that version of the model, and fit the model with the best tuned parameters to the folds. Make sure to save the final fit.   
+
+```{r, eval=FALSE, warning=FALSE, message=FALSE}
+# select_best() to select the best tuned parameters for the model (based on RMSE)
+# finalize_workflow() to adjust the model workflow to include that version of the model
+# fit_resamples() to fit the model with the best tuned parameter to the folds
+
+# LINEAR REGRESSION 
+# No need to select the best fit as linear regression had no tuning -> we just fit the one linear regression model we fit
+lm_fit <- fit_resamples(lm_workflow, resamples = pokemon_folds)
+write_rds(lm_fit, file = "lm_final.rds")
+
+# RIDGE REGRESSION
+best_penalty <- select_best(ridge_tune, metric = 'rmse')
+ridge_final <- finalize_workflow(ridge_workflow, best_penalty)
+ridge_final_fit <- fit_resamples(ridge_final, resamples = pokemon_folds)
+write_rds(ridge_final_fit, file = "ridge_final.rds")
+
+# LASSO REGRESSION
+best_lasso_penalty <- select_best(tune_res2, metric = "rmse")
+lasso_final <- finalize_workflow(lasso_workflow, best_lasso_penalty)
+lasso_final_fit <- fit_resamples(lasso_final, resamples = pokemon_folds)
+write_rds(lasso_final_fit, file = "lasso_final.rds")
+
+# POLYNOMIAL REGRESSION
+best_poly<- select_best(poly_tuned, metric = "rmse")
+poly_final <- finalize_workflow(poly_wf, best_poly)
+poly_final_fit <- fit_resamples(poly_final, resamples = pokemon_folds)
+write_rds(poly_final_fit, file = "poly_final.rds")
+
+# K NEAREST NEIGHBORS
+best_knn <- select_best(knn_tune, metric = "rmse")
+knn_final <- finalize_workflow(knn_workflow, best_knn)
+knn_final_fit <- fit_resamples(knn_final, resamples = pokemon_folds)
+write_rds(knn_final_fit, file = "knn_final.rds")
+
+# ELASTIC NET
+best_elastic <- select_best(elastic_tune, metric = "rmse")
+elastic_final <- finalize_workflow(elastic_workflow, best_elastic)
+elastic_final_fit <- fit_resamples(elastic_final, resamples = pokemon_folds)
+write_rds(elastic_final_fit, file = "elastic_final.rds")
+
+# RANDOM FOREST
+best_rf <- select_best(rf_tuned)
+rf_final_workflow <- finalize_workflow(rf_workflow, best_rf)
+rf_final_fit <- fit_resamples(rf_final_workflow, resamples = pokemon_folds)
+write_rds(rf_final_fit, file = "rf_final.rds")
+
+# BOOSTED TREES
+best_boosted <- select_best(boosted_tuned)
+boosted_final_workflow <- finalize_workflow(boosted_workflow, best_boosted)
+boosted_final_fit <- fit_resamples(boosted_final_workflow, resamples = pokemon_folds)
+write_rds(boosted_final_fit, file = "boosted_final.rds")
+```
+
+8. Load in each of the best models and collect the RMSE's of each of the best model fits for comparison with one another.    
+
+```{r, warning=FALSE, message=FALSE}
+# collect_metrics() to collect the RMSE
+# slice() to only collect the RMSE and not R squared
+
+# LINEAR REGRESSION 
+lm_final_fit <- read_rds(file = "lm_final.rds")
+lm_rmse <- collect_metrics(lm_final_fit) %>% slice(1)
+
+# RIDGE REGRESSION
+ridge_final_fit <- read_rds(file = "ridge_final.rds")
+ridge_rmse <- collect_metrics(ridge_final_fit) %>% slice(1)
+
+# LASSO REGRESSION
+lasso_final_fit <- read_rds(file = "lasso_final.rds")
+lasso_rmse <- collect_metrics(lasso_final_fit) %>% slice(1)
+
+# POLYNOMIAL REGRESSION
+poly_final_fit <- read_rds(file = "poly_final.rds")
+poly_rmse <- collect_metrics(poly_final_fit) %>% slice(1)
+
+# K NEAREST NEIGHBORS
+knn_final_fit <- read_rds(file = "knn_final.rds")
+knn_rmse <- collect_metrics(knn_final_fit) %>% slice(1)
+
+# ELASTIC NET
+elastic_final_fit <- read_rds(file = "elastic_final.rds")
+elastic_rmse <- collect_metrics(elastic_final_fit) %>% slice(1)
+
+# RANDOM FOREST
+rf_final_fit <- read_rds(file = "rf_final.rds")
+rf_rmse <- collect_metrics(rf_final_fit) %>% slice(1)
+
+# BOOSTED TREES
+boosted_final_fit <- read_rds(file = "boosted_final.rds")
+boosted_rmse <- collect_metrics(boosted_final_fit) %>% slice(1)
+```
+
+# Model Results
+
+It's finally time to compare the results of all of our models and see which ones performed the best!   
+
+```{r}
+# Creating a tibble of all the models and their RMSE
+final_compare_tibble <- tibble(Model = c("Linear Regression", "Ridge Regression", "Lasso Regression", "Polynomial Regression", "K Nearest Neighbors", "Elastic Net", "Random Forest", "Boosted Trees"), RMSE = c(lm_rmse$mean, ridge_rmse$mean, lasso_rmse$mean, poly_rmse$mean, knn_rmse$mean, elastic_rmse$mean, rf_rmse$mean, boosted_rmse$mean))
+
+# Arranging by lowest RMSE
+final_compare_tibble <- final_compare_tibble %>% 
+  arrange(RMSE)
+
+final_compare_tibble
+```
+
+From the performance of the models on the cross-validation data, we can see that the random forest performed the best! The other three models we will focus on as well are boosted trees, polynomial regression, and elastic net because those placed right after the random forest. One key thing to note from these results is that it appears the linear and simpler models did the worst, which indicates that our data is probably nonlinear.   
+
+## Model Autoplots  
+
+The autoplot in R allows us to visualize the effect of each of the tuned parameters on the performance of each model. In the autoplots, the performance of the models is measured by the RMSE (the lower the RMSE, the better the model has performed).   
+
+### Elastic Net Plot  
+
+```{r}
+autoplot(elastic_tuned, metric = 'rmse')
+```
+
+For the elastic net, we tuned penalty and mixture at 10 different levels. From the plot, it seems that lower to mid-range penalty values appear to do the best. As the penalty term becomes too large, the model does worse because the coefficients of the predictors are being reduced to very small values (due to the penalty), which makes it much more difficult for the model to predict. Interestingly, although the RMSE appears to be lowest at a penalty value slightly greater than one (which matches the overall trend), the lowest RMSE appears to have a high mixture value. It seems that lower values of mixture only perform better than higher values of mixture when the penalty term is very high. Otherwise, when the penalty term is low to mid-range, higher values of mixture appear to perform better. This lines up with our overall model results as the lasso regression performed closer to the elastic net than the ridge regression (since lasso regression has a mixture value of 1 and ridge regression has a mixture value of 0).  
+
+### Polynomial Regression Plot
+
+```{r}
+autoplot(poly_tuned, metric = 'rmse')
+```
+
+For the polynomial regression, we tuned the degree of all continuous variables at 5 different levels. As we can see from the plot, the model performs better when a degree is added to the predictors (except when the degree gets too high). This further affirms our initial idea that the data is nonlinear. From the plot, it appears that the model does the best at a polynomial degree of 3 and does substantially worse after a polynomial degree of 4.   
+
+### Boosted Trees Autoplot  
+
+```{r}
+autoplot(boosted_tuned, metric = 'rmse')
+```
+
+For the boosted trees, we tuned the learning rate, number of trees, and minimal node size with 5 different levels. It may be useful to note that some tweaking of the model was done prior to finalizing the ranges for these parameters. The model did substantially worse when the minimal node size was a lower number, which is why the range 40 to 60 was chosen. Also, the model did not do as well when the learning rate was too high. A high learning rate causes the model to learn faster, but it also trains the model less and makes it less generalized. So, the range 0.01 to 0.1 was chosen to see which smaller learning rate value performs the best. From the starting points of each of the plots, it appears that the model does better at a higher learning rate. This means that the model does better when it is learning faster. Also, it appears that generally, once there are more than ~50 trees, the number of trees does not make much of a change on the performance of the model. However, the model appears to do worse when there are less than ~50 trees. The minimal node size does not seem to have much of an effect on the performance of the model.   
+
+### Random Forest Autoplot  
+
+```{r}
+autoplot(rf_tuned, metric = 'rmse')
+```
+
+For the random forest, 
+
+# Results of the Best Model
+
+```{r, eval = FALSE}
+# Fitting to the training data
+best_rf_train <- select_best(rf_tuned)
+rf_final_workflow_train <- finalize_workflow(rf_workflow, best_rf)
+rf_final_fit_train <- fit(rf_final_workflow, data = pokemon_train)
+
+write_rds(rf_final_fit, file = "rf_final_train.rds")
+```
+
+```{r}
+rf_final_fit_train <- read_rds(file = "rf_final_train.rds")
+
+# VIP plot
+rf_final_fit_train %>% 
+  extract_fit_engine() %>% 
+  vip()
+```
+
+```{r}
+# Indicating the desired metric
+pokemon_metric <- metric_set(rmse)
+
+# Creating the predicted vs. actual value tibble
+pokemon_tibble <- predict(rf_final_fit, new_data = pokemon_test %>% select(-capture_rate))
+pokemon_tibble <- bind_cols(pokemon_tibble, pokemon_test %>% select(capture_rate))
+
+# Collecting the rmse of the model on the testing data
+pokemon_tibble_metrics <- pokemon_metric(pokemon_tibble, truth = capture_rate, estimate = .pred)
+pokemon_tibble_metrics
+```
 
 
 
 
-### Sources
+
+
+
+# Sources

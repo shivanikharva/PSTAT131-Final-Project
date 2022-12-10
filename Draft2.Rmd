@@ -195,6 +195,7 @@ pokemon_recipe <- recipe(capture_rate ~ base_total + base_happiness + experience
   step_impute_linear(height_m, impute_with = imp_vars(base_total, base_happiness, experience_growth, type1, generation, is_legendary, has_sturdy, has_swift_swim, has_keen_eye, has_chlorophyll, has_levitate)) %>% 
   # imputing weight
   step_impute_linear(weight_kg, impute_with = imp_vars(base_total, base_happiness, experience_growth, type1, generation, is_legendary, has_sturdy, has_swift_swim, has_keen_eye, has_chlorophyll, has_levitate)) %>% 
+  # Only prioritizing top types of Pokemon
   step_other(type1) %>% 
   # dummy coding nominal variables
   step_dummy(generation, is_legendary, type1, has_sturdy, has_swift_swim, has_keen_eye, has_chlorophyll, has_levitate) %>% 
@@ -223,10 +224,15 @@ lm_workflow <- workflow() %>%
 ```{r}
 # Fitting the models
 lm_fit <- fit_resamples(lm_workflow, resamples = pokemon_folds)
+
+# Save
+write_rds(lm_fit, file = "lm_final.rds")
 ```
 
 ```{r}
-collect_metrics(lm_fit)
+lm_final_fit <- read_rds(file = "lm_final.rds")
+
+collect_metrics(lm_final_fit)
 ```
 
 ### Polynomial Regression  
@@ -243,26 +249,35 @@ ridge_spec <- linear_reg(mixture = 0, penalty = tune()) %>%
   set_engine("glmnet")
 
 ridge_workflow <- workflow() %>% 
-  add_recipe(ridge_lasso_recipe) %>% 
+  add_recipe(pokemon_recipe) %>% 
   add_model(ridge_spec)
 
 penalty_grid <- grid_regular(penalty(range = c(-5,5)), levels = 50)
 
-tune_res <- tune_grid(
+ridge_tune <- tune_grid(
   ridge_workflow,
   resamples = pokemon_folds,
   grid = penalty_grid
 )
+
+write_rds(ridge_tune, file = "ridge.rds")
 ```
 ```{r}
-autoplot(tune_res)
+ridge_tune <- read_rds(file = "ridge.rds")
+
+autoplot(ridge_tune)
 ```
 
 ```{r}
-best_penalty <- select_best(tune_res, metric = 'rmse')
+best_penalty <- select_best(ridge_tune, metric = 'rmse')
 
 ridge_final <- finalize_workflow(ridge_workflow, best_penalty)
 ridge_final_fit <- fit_resamples(ridge_final, resamples = pokemon_folds)
+
+write_rds(ridge_final_fit, file = "ridge_final.rds")
+
+ridge_final_fit <- read_rds(file = "ridge_final.rds")
+
 collect_metrics(ridge_final_fit)
 ```
 
@@ -277,21 +292,30 @@ lasso_workflow <- workflow() %>%
   add_recipe(ridge_lasso_recipe) %>% 
   add_model(lasso_spec)
 
-tune_res2 <- tune_grid(
+lasso_tune <- tune_grid(
   lasso_workflow,
   resamples = pokemon_folds,
   grid = penalty_grid
 )
+
+write_rds(lasso_tune, file = "lasso.rds")
+
+lasso_tune <- read_rds(file = "lasso.rds")
 ```
 
 ```{r}
-autoplot(tune_res2)
+autoplot(lasso_tune)
 ```
 
 ```{r}
 best_lasso_penalty <- select_best(tune_res2, metric = "rmse")
 lasso_final <- finalize_workflow(lasso_workflow, best_lasso_penalty)
 lasso_final_fit <- fit_resamples(lasso_final, resamples = pokemon_folds)
+
+write_rds(lasso_final_fit, file = "lasso_final.rds")
+
+lasso_final_fit <- read_rds(file = "lasso_final.rds")
+
 ```
 
 ```{r}
@@ -301,9 +325,10 @@ collect_metrics(lasso_final_fit)
 
 ```{r, message = FALSE, warning = FALSE}
 poly_rec <- pokemon_recipe %>% 
-  step_poly(attack, defense, hp, sp_attack, sp_defense, speed, degree = tune())
+  step_poly(base_total, base_happiness, experience_growth, height_m, percentage_male, weight_kg, degree = tune())
 
 #ggplot(pokemon_train, aes(y = type1)) + geom_bar()
+
 
 #step_poly(sp_attack, degree = 2) %>% 
  # step_poly(defense, degree = 2) %>% 
@@ -311,28 +336,36 @@ poly_rec <- pokemon_recipe %>%
 #  step_poly(hp, degree = 2) %>% 
  # step_poly(speed, degree = 2)
 
-lm_spec <- linear_reg() %>% 
+poly_spec <- linear_reg() %>% 
   set_mode("regression") %>% 
   set_engine("lm")
 
 poly_wf <- workflow() %>% 
-  add_model(lm_spec) %>% 
+  add_model(poly_spec) %>% 
   add_recipe(poly_rec)
 
 degree_grid <- grid_regular(degree(range = c(1,5)), levels = 5)
 
-tune_res3 <- tune_grid(
+poly_tuned <- tune_grid(
   poly_wf,
   resamples = pokemon_folds,
   grid = degree_grid
 )
-autoplot(tune_res3)
+
+write_rds(poly_tuned, file = "poly.rds")
+poly_tuned <- read_rds(file = "poly.rds")
+
+autoplot(poly_tuned)
 ```
 
 ```{r}
-best_poly<- select_best(tune_res3, metric = "rmse")
+best_poly<- select_best(poly_tuned, metric = "rmse")
 poly_final <- finalize_workflow(poly_wf, best_poly)
 poly_final_fit <- fit_resamples(poly_final, resamples = pokemon_folds)
+
+write_rds(poly_final_fit, file = "poly_final.rds")
+
+poly_final_fit <- read_rds(file = "poly_final.rds")
 
 collect_metrics(poly_final_fit)
 ```
@@ -340,7 +373,7 @@ collect_metrics(poly_final_fit)
 
 
 ### KNN  
-```{r}
+```{r, warning=FALSE}
 knn_model <- nearest_neighbor(
   neighbors = tune(),
   mode = "regression") %>% 
@@ -350,15 +383,18 @@ knn_workflow <- workflow() %>%
   add_model(knn_model) %>% 
   add_recipe(pokemon_recipe)
 
-knn_parameters <- parameters(knn_model)
-
-knn_grd <- grid_regular(knn_parameters, levels = 5)
+knn_grid <- grid_regular(neighbors(range = c(1,15)), levels = 5)
 
 knn_tune <- tune_grid(
     knn_workflow,
     resamples = pokemon_folds,
-    grid = knn_grd
+    grid = knn_grid
   )
+
+write_rds(knn_tune, file = "knn.rds")
+
+knn_tune <- read_rds(file = "knn.rds")
+
 ```
 
 ```{r}
@@ -370,6 +406,10 @@ autoplot(knn_tune)
 best_knn <- select_best(knn_tune, metric = "rmse")
 knn_final <- finalize_workflow(knn_workflow, best_knn)
 knn_final_fit <- fit_resamples(knn_final, resamples = pokemon_folds)
+
+write_rds(knn_final_fit, file = "knn_final.rds")
+
+knn_final_fit <- read_rds(file = "knn_final.rds")
 ```
 
 
@@ -396,18 +436,35 @@ elastic_tune <- tune_grid(
   resamples = pokemon_folds,
   grid = elastic_grid
 )
+
+write_rds(elastic_tune, file = "elastic.rds")
 ```
 
 ```{r}
+elastic_tune <- read_rds(file = "elastic.rds")
+
 autoplot(elastic_tune)
 ```
 
+```{r}
+# Finding roc_auc of best performing random forest model on folds
+elastic_best_rmse <- elastic_tune %>% 
+  collect_metrics() %>% 
+  arrange(mean)  %>% 
+  slice(73)
+
+elastic_best_rmse
+```
 
 
 ```{r}
 best_elastic <- select_best(elastic_tune, metric = "rmse")
 elastic_final <- finalize_workflow(elastic_workflow, best_elastic)
 elastic_final_fit <- fit_resamples(elastic_final, resamples = pokemon_folds)
+
+write_rds(elastic_final_fit, file = "elastic_final.rds")
+
+elastic_final_fit <- read_rds(file = "elastic_final.rds")
 
 collect_metrics(elastic_final_fit)
 ```
@@ -424,7 +481,7 @@ rf_workflow <- workflow() %>%
   add_model(rf_spec)
 
 # Creating a regular grid with 8 levels each
-rf_parameter_grid <- grid_regular(mtry(range = c(1, 19)), trees(range = c(200,1000)), min_n(range = c(5,20)), levels = 8)
+rf_parameter_grid <- grid_regular(mtry(range = c(1, 14)), trees(range = c(200,1000)), min_n(range = c(5,20)), levels = 8)
 ```
 
 ```{r, eval = FALSE}
@@ -450,19 +507,33 @@ autoplot(rf_tuned, metric = 'rmse')
 
 ```{r}
 # Finding roc_auc of best performing random forest model on folds
-rf_best_roc_auc <- rf_tuned %>% 
+rf_best_rmse <- rf_tuned %>% 
   collect_metrics() %>% 
-  arrange(mean)
+  arrange(mean) %>% 
+  slice(513)
 
-rf_best_roc_auc
+rf_best_rmse
 ```
 
 ```{r}
 best_rf <- select_best(rf_tuned)
 rf_final_workflow <- finalize_workflow(rf_workflow, best_rf)
-rf_final_fit <- fit(rf_final_workflow, data = pokemon_train)
+rf_final_fit <- fit_resamples(rf_final_workflow, resamples = pokemon_folds)
 
-rf_final_fit %>% 
+write_rds(rf_final_fit, file = "rf_final.rds")
+
+rf_final_fit <- read_rds(file = "rf_final.rds")
+
+collect_metrics(rf_final_fit) %>% slice(1)
+```
+
+
+```{r}
+best_rf2 <- select_best(rf_tuned)
+rf_final_workflow2 <- finalize_workflow(rf_workflow, best_rf)
+rf_final_fit2 <- fit(rf_final_workflow, data = pokemon_train)
+
+rf_final_fit2 %>% 
   extract_fit_engine() %>% 
   vip()
 ```
@@ -470,7 +541,9 @@ rf_final_fit %>%
 ### BOOSTED TREE
 ```{r}
 # Setting up boosted tree model
-boosted_spec <- boost_tree(trees = tune()) %>%
+boosted_spec <- boost_tree(trees = tune(),
+                          learn_rate = tune(),
+                          min_n = tune()) %>%
   set_engine("xgboost") %>%
   set_mode("regression")
 
@@ -480,7 +553,7 @@ boosted_workflow <- workflow() %>%
   add_model(boosted_spec)
 
 # Creating regular grid
-boosted_grid <- grid_regular(trees(range = c(10, 2000)), levels = 10)
+boosted_grid <- grid_regular(trees(range = c(5, 200)), learn_rate(range = c(0.01,0.1), trans = identity_trans()), min_n(range = c(40, 60)), levels = 5)
 ```
 
 ```{r, eval = FALSE}
@@ -500,18 +573,69 @@ write_rds(boosted_tune_res, file = "boosted.rds")
 boosted_tuned <- read_rds(file = "boosted.rds")
 
 # Printing autoplot of results
-autoplot(boosted_tuned)
+autoplot(boosted_tuned, metric = 'rmse')
 ```
 
 ```{r}
 # Finding roc_auc of best performing boosted tree model on folds
-boosted_best_roc_auc <- boosted_tuned %>% 
+boosted_best_rmse <- boosted_tuned %>% 
   collect_metrics() %>% 
-  arrange((mean))
+  arrange(mean) %>% 
+  slice(126)
 
-boosted_best_roc_auc
+boosted_best_rmse
 ```
 
+```{r, eval = FALSE, warning = FALSE}
+# Elastic
+elastic_tuned <- read_rds(file = "elastic_tune.rds")
+
+# Fitting best random forest model to the folds
+best_elastic <- select_best(elastic_tuned)
+elastic_final_workflow <- finalize_workflow(elastic_workflow, best_elastic)
+elastic_final_fit <- fit_resamples(elastic_final_workflow, resamples = pokemon_folds)
+
+# Save
+write_rds(rf_final_fit, file = "elastic_final.rds")
+
+# Polynomial Regression
+poly_tuned <- read_rds(file = "poly_tuned.rds")
+
+# Fitting best random forest model to the folds
+best_poly <- select_best(poly_tuned)
+poly_final_workflow <- finalize_workflow(poly_wf, best_poly)
+poly_final_fit <- fit_resamples(poly_final_workflow, resamples = pokemon_folds)
+
+# Save
+write_rds(rf_final_fit, file = "poly_final.rds")
+
+# Random Forest
+rf_tuned <- read_rds(file = "rf.rds")
+
+# Fitting best random forest model to the folds
+best_rf <- select_best(rf_tuned)
+rf_final_workflow <- finalize_workflow(rf_workflow, best_rf)
+rf_final_fit <- fit_resamples(rf_final_workflow, resamples = pokemon_folds)
+
+# Save
+write_rds(rf_final_fit, file = "rf_final.rds")
+
+
+# Boosting
+boosted_tuned <- read_rds(file = "boosted.rds")
+
+# Fitting best boosted trees model to the folds
+best_boosted <- select_best(boosted_tuned)
+boosted_final_workflow <- finalize_workflow(boosted_workflow, best_boosted)
+boosted_final_fit <- fit_resamples(boosted_final_workflow, resamples = pokemon_folds)
+
+# Save
+write_rds(boosted_final_fit, file = "boosted_final.rds")
+```
+
+```{r}
+
+```
 
 
 
