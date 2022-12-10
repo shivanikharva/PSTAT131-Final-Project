@@ -760,7 +760,7 @@ Random forest #40 with all 14 predictors, 657 trees, and a minimal node size of 
 
 ## Fitting to Training Data  
 
-Now, we will take that best model from the tuned random forest and fit it to the training data. This will train that random forest one more time on the entire training data set.  
+Now, we will take that best model from the tuned random forest and fit it to the training data. This will train that random forest one more time on the entire training data set. Once we have fit and trained the random forest on the training data, it will be ready for testing!   
 
 ```{r, eval = FALSE, warning = FALSE}
 # Fitting to the training data
@@ -769,26 +769,17 @@ rf_final_workflow_train <- finalize_workflow(rf_workflow, best_rf)
 rf_final_fit_train <- fit(rf_final_workflow, data = pokemon_train)
 
 # Save
-write_rds(rf_final_fit, file = "data/rf_final/rf_final_train.rds")
+write_rds(rf_final_fit_train, file = "data/rf_final/rf_final_train.rds")
 ```
-
-```{r}
-# Reading in the random forest fit on the training data
-rf_final_fit_train <- read_rds(file = "data/rf_final/rf_final_train.rds")
-
-# Collecting the RMSE of the random forest fit on the training data
-rf_final_fit_train %>% 
-  collect_metrics() %>% 
-  slice(1)
-```
-
-The chosen random forest model had an RMSE of 43.95341 on the training data. This is quite close to the RMSE the model had on the folds.  
 
 ## Testing the Model  
 
 Now, it's time to test our random forest model to see how it performs on data that it has not been trained on at all: the testing data set.  
 
 ```{r, eval = FALSE}
+# Loading in the training data fit
+rf_final_fit_train <- read_rds(file = "data/rf_final/rf_final_train.rds")
+
 # Creating the predicted vs. actual value tibble
 pokemon_tibble <- predict(rf_final_fit_train, new_data = pokemon_test %>% select(-capture_rate))
 pokemon_tibble <- bind_cols(pokemon_tibble, pokemon_test %>% select(capture_rate))
@@ -807,11 +798,22 @@ pokemon_metric <- metric_set(rmse)
 # Collecting the rmse of the model on the testing data
 pokemon_tibble_metrics <- pokemon_metric(pokemon_tibble, truth = capture_rate, estimate = .pred)
 pokemon_tibble_metrics
-
 ```
 
-Our random forest actually performed slightly better on the testing set than on the training set and folds with an RMSE of 42.42378!  
+Our random forest actually performed better on the testing set than on the cross-validation folds with an RMSE of 37.87014! Since RMSE is measured in relation to the values the outcome may take on, our testing RMSE of 37.87014 in relation to the outcome range from 0 to 255 is not a great RMSE, but it is not too bad either. So, our model did not perform horribly and still managed to explain some variation in the outcome!  
 
+## Variable Importance  
+
+One cool thing about random forests is that they can also tell you which variables are the most important in predicting the outcome. This is shown in a variable importance plot (VIP).  
+
+```{r}
+# Using the training fit to create the VIP because the model was not actually fit to the testing data
+rf_final_fit_train %>% 
+  extract_fit_engine() %>% 
+  vip(aesthetics = list(fill = "red3", color = "blue3"))
+```
+
+From this we can see that the variable that mattered the most in predicting the outcome was `base_total`, which is what we had believed would happen. Although some of the other variables present importance in predicting the outcome, the `base_total` is by far the most important variable. This also makes contextual sense because a Pokemon with higher battle statistics should be harder to capture because it has greater power than other Pokemon.  
 
 
 
