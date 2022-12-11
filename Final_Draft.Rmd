@@ -2,11 +2,12 @@
 title: "Predicting the Capture Rate of Pokemon"
 subtitle: "PSTAT 131 Final Project"
 author: "Shivani Kharva"
-date: "2022-12-06"
+date: "2022-12-11"
 output:
   html_document:
     code_folding: hide
     toc: true
+    toc_float: true
 ---
 
 # Introduction
@@ -59,7 +60,7 @@ set.seed(0124)
 head(pokemon)
 ```
 
-This data was taken from the Kaggle data set, "[Pokemon Stats Dataset](https://www.kaggle.com/datasets/hasanarcas/pokemon-stats-dataset)," and it was scraped from the [official Pokemon database](https://pokemondb.net/pokedex/all) by user Hasan Arcas.
+This data was taken from the Kaggle data set, "[Pokemon Stats Dataset](https://www.kaggle.com/datasets/hasanarcas/pokemon-stats-dataset)," and it was scraped from the [official Pokemon Database](https://pokemondb.net/pokedex/all) by user Hasan Arcas.
 
 # Exploring and Tidying the Raw Data
 
@@ -235,7 +236,7 @@ From this plot, we can see that the medians, maxima, minima, and first quartiles
 
 ### Legendary Status  
 
-Legendary Pokemon are especially powerful Pokemon that players rarely encounter. From this definition, it seems likely that it would be harder to capture a Pokemon that is legendary than one that is not.  
+Legendary Pokemon are especially powerful Pokemon that players rarely encounter. From this definition, it seems likely that it would be harder to capture a Pokemon that is legendary than one that is not. Let's see if this is true or not.    
 
 ```{r}
 ggplot(pokemon_data, aes(capture_rate)) + 
@@ -595,98 +596,53 @@ boosted_tuned <- read_rds(file = "data/tuned_models/boosted.rds")
 ```
 
 
-7. Select the best tuned parameters for the model (based on RMSE), adjust the model workflow to include that version of the model, and fit the model with the best tuned parameters to the folds. Make sure to save the final fit.   
+7. Collect the metrics of the tuned models, arrange in ascending order of mean to see what the lowest RMSE for that tuned model is, and slice to choose only the lowest RMSE. Save the RMSE to a variable for comparison.  
 
 ```{r, eval=FALSE, warning=FALSE, message=FALSE}
-# select_best() to select the best tuned parameters for the model (based on RMSE)
-# finalize_workflow() to adjust the model workflow to include that version of the model
-# fit_resamples() to fit the model with the best tuned parameter to the folds
-
-# LINEAR REGRESSION 
-# No need to select the best fit as linear regression had no tuning -> we just fit the one linear regression model we fit
-lm_fit <- fit_resamples(lm_workflow, resamples = pokemon_folds)
-write_rds(lm_fit, file = "data/final_models/lm_final.rds")
-
-# RIDGE REGRESSION
-best_penalty <- select_best(ridge_tune, metric = 'rmse')
-ridge_final <- finalize_workflow(ridge_workflow, best_penalty)
-ridge_final_fit <- fit_resamples(ridge_final, resamples = pokemon_folds)
-write_rds(ridge_final_fit, file = "data/final_models/ridge_final.rds")
-
-# LASSO REGRESSION
-best_lasso_penalty <- select_best(tune_res2, metric = "rmse")
-lasso_final <- finalize_workflow(lasso_workflow, best_lasso_penalty)
-lasso_final_fit <- fit_resamples(lasso_final, resamples = pokemon_folds)
-write_rds(lasso_final_fit, file = "data/final_models/lasso_final.rds")
-
-# POLYNOMIAL REGRESSION
-best_poly<- select_best(poly_tuned, metric = "rmse")
-poly_final <- finalize_workflow(poly_wf, best_poly)
-poly_final_fit <- fit_resamples(poly_final, resamples = pokemon_folds)
-write_rds(poly_final_fit, file = "data/final_models/poly_final.rds")
-
-# K NEAREST NEIGHBORS
-best_knn <- select_best(knn_tune, metric = "rmse")
-knn_final <- finalize_workflow(knn_workflow, best_knn)
-knn_final_fit <- fit_resamples(knn_final, resamples = pokemon_folds)
-write_rds(knn_final_fit, file = "data/final_models/knn_final.rds")
-
-# ELASTIC NET
-best_elastic <- select_best(elastic_tune, metric = "rmse")
-elastic_final <- finalize_workflow(elastic_workflow, best_elastic)
-elastic_final_fit <- fit_resamples(elastic_final, resamples = pokemon_folds)
-write_rds(elastic_final_fit, file = "data/final_models/elastic_final.rds")
-
-# RANDOM FOREST
-best_rf <- select_best(rf_tuned)
-rf_final_workflow <- finalize_workflow(rf_workflow, best_rf)
-rf_final_fit <- fit_resamples(rf_final_workflow, resamples = pokemon_folds)
-write_rds(rf_final_fit, file = "data/final_models/rf_final.rds")
-
-# BOOSTED TREES
-best_boosted <- select_best(boosted_tuned)
-boosted_final_workflow <- finalize_workflow(boosted_workflow, best_boosted)
-boosted_final_fit <- fit_resamples(boosted_final_workflow, resamples = pokemon_folds)
-write_rds(boosted_final_fit, file = "data/final_models/boosted_final.rds")
-```
-
-8. Load in each of the best models and collect the RMSE's of each of the best model fits for comparison with one another.    
-
-```{r, warning=FALSE, message=FALSE}
 # collect_metrics() to collect the RMSE
-# slice() to only collect the RMSE and not R squared
+# slice() to save only RMSE
 
 # LINEAR REGRESSION 
-lm_final_fit <- read_rds(file = "data/final_models/lm_final.rds")
-lm_rmse <- collect_metrics(lm_final_fit) %>% slice(1)
+# Fitting the linear regression to the folds first (since it had no tuning)
+lm_fit <- fit_resamples(lm_workflow, resamples = pokemon_folds)
+lm_rmse <- collect_metrics(lm_fit) %>% 
+  slice(1)
+  
 
 # RIDGE REGRESSION
-ridge_final_fit <- read_rds(file = "data/final_models/ridge_final.rds")
-ridge_rmse <- collect_metrics(ridge_final_fit) %>% slice(1)
+ridge_rmse <- collect_metrics(ridge_tuned) %>% 
+  arrange(mean) %>% 
+  slice(49)
 
 # LASSO REGRESSION
-lasso_final_fit <- read_rds(file = "data/final_models/lasso_final.rds")
-lasso_rmse <- collect_metrics(lasso_final_fit) %>% slice(1)
+lasso_rmse <- collect_metrics(lasso_tuned) %>% 
+  arrange(mean) %>% 
+  slice(35)
 
 # POLYNOMIAL REGRESSION
-poly_final_fit <- read_rds(file = "data/final_models/poly_final.rds")
-poly_rmse <- collect_metrics(poly_final_fit) %>% slice(1)
+poly_rmse <- collect_metrics(poly_tuned) %>% 
+  arrange(mean) %>% 
+  slice(6)
 
 # K NEAREST NEIGHBORS
-knn_final_fit <- read_rds(file = "data/final_models/knn_final.rds")
-knn_rmse <- collect_metrics(knn_final_fit) %>% slice(1)
+knn_rmse <- collect_metrics(knn_tuned) %>% 
+  arrange(mean) %>% 
+  slice(6)
 
 # ELASTIC NET
-elastic_final_fit <- read_rds(file = "data/final_models/elastic_final.rds")
-elastic_rmse <- collect_metrics(elastic_final_fit) %>% slice(1)
+elastic_rmse <- collect_metrics(elastic_tuned) %>% 
+  arrange(mean) %>% 
+  slice(73)
 
 # RANDOM FOREST
-rf_final_fit <- read_rds(file = "data/final_models/rf_final.rds")
-rf_rmse <- collect_metrics(rf_final_fit) %>% slice(1)
+rf_rmse <- collect_metrics(rf_tuned) %>% 
+  arrange(mean) %>% 
+  slice(513)
 
 # BOOSTED TREES
-boosted_final_fit <- read_rds(file = "data/final_models/boosted_final.rds")
-boosted_rmse <- collect_metrics(boosted_final_fit) %>% slice(1)
+boosted_rmse <- collect_metrics(boosted_tuned) %>% 
+  arrange(mean) %>% 
+  slice(126)
 ```
 
 # Model Results
@@ -717,6 +673,7 @@ ggplot(all_models, aes(x=Model, y=RMSE)) +
   scale_fill_manual(values = c("blue1", "red1", "blue2", "red2", "blue3", "red3", "blue4", "red4")) +
   theme(legend.position = "none") 
 ```
+*Note: the colors in this bar plot do not represent anything and are simply for aesthetic preference.*
 
 From the performance of the models on the cross-validation data, we can see that the random forest performed the best! The other three models we will focus on as well are boosted trees, polynomial regression, and elastic net because those placed right after the random forest. One key thing to note from these results is that it appears the linear and simpler models did the worst, which indicates that our data is probably nonlinear.   
 
@@ -778,7 +735,7 @@ Now, we will take that best model from the tuned random forest and fit it to the
 
 ```{r, eval = FALSE, warning = FALSE}
 # Fitting to the training data
-best_rf_train <- select_best(rf_tuned)
+best_rf_train <- select_best(rf_tuned, metric = 'rmse')
 rf_final_workflow_train <- finalize_workflow(rf_workflow, best_rf)
 rf_final_fit_train <- fit(rf_final_workflow, data = pokemon_train)
 
@@ -814,7 +771,21 @@ pokemon_tibble_metrics <- pokemon_metric(pokemon_tibble, truth = capture_rate, e
 pokemon_tibble_metrics
 ```
 
-Our random forest actually performed better on the testing set than on the cross-validation folds with an RMSE of 37.78122! Since RMSE is measured in relation to the values the outcome may take on, our testing RMSE of 37.78122 in relation to the outcome range from 0 to 255 is not a great RMSE, but it is not too bad either. So, our model did not perform horribly and still managed to explain some variation in the outcome!  
+Our random forest actually performed better on the testing set than on the cross-validation folds with an RMSE of 37.78122! Since RMSE is measured in relation to the values the outcome may take on, our testing RMSE of 37.78122 in relation to the outcome range from 0 to 255 is not a great RMSE, but it is not too bad either. So, our model did not perform horribly and still managed to explain some variation in the outcome!   
+
+We might also be interested in a plot of the predicted values versus the actual values:  
+
+```{r}
+# Creating plot of predicted values vs. actual values
+pokemon_tibble %>% 
+  ggplot(aes(x = .pred, y = capture_rate)) +
+  geom_point(alpha = 0.4) +
+  geom_abline(lty = 2) +
+  theme_grey() +
+  coord_obs_pred()
+```
+
+If every observation was predicted accurately, the dots would form a straight line. From the plot, we can see that very few of the dots actually fall on the line. However, it also appears that the model did not do a terrible job predicting the capture_rate because the points do seem to follow the same general pattern as the line. Also, it is a good sign that the model did not predict any negative capture rate values. So, overall, the random forest model did not do a terrible job predicting the capture rate, but there is definitely room for improvement.  
 
 ## Variable Importance  
 
@@ -831,14 +802,23 @@ From this we can see that the variable that mattered the most in predicting the 
 
 # Conclusion  
 
-After fitting various models and conducting analysis on each of them, the best model to predict the capture rate of a Pokemon seems to be the random forest model. However, this model still does not do a great job predicting the capture rate (based on the RMSE). This might mean the capture rate of a Pokemon is not very predictable or that the predictors chosen might not have been the best predictors to use.  
+After fitting various models and conducting analysis on each of them, the best model to predict the capture rate of a Pokemon seems to be the random forest model. This is no surprise at all since the random forest tends to work well for most data because it is nonparametric and makes no assumptions about parametric forms or the outcome (more flexible). However, this model still does not do a great job predicting the capture rate (based on the RMSE).   
+
+The model that did the worst was K Nearest Neighbors (KNN). This was also not surprising as KNN tends to do worse when there are too many predictors because this means the data has too many dimensions. In a high dimensional data space, the data points are not close enough to each other for KNN to do well in predicting the outcome unless there are enough observations to make up for the high dimensional data space. Therefore, it makes sense that KNN did the worst.  
 
 Some avenues of improvement may be to look into other characteristics associated with capturing a Pokemon that may help explain more of the variability in the outcome than our current model. For example, in the Pokemon games, there are multiple Poke balls that can be used to capture a Pokemon (Great Ball, Ultra Ball, etc.). Perhaps the capture rate of some of the Pokemon in this data set was affected by which ball was used to capture it since some balls are more powerful than others. Another potential predictor could be the items used on a Pokemon before capturing it that might make it easier to capture (berries, etc.). This might have also altered the capture rate of some Pokemon.  
 
-One potential question that may be lingering is whether the choice to include the `base_total` rather than the individual six battle statistics was the correct one. You may be wondering whether the model would have done better if those were included instead. I went back and included those six battle statistics instead of the `base_total` and ran the random forest model. The model actually did slightly worse than it did with the total of the statistics. When running the variable importance plot for that fit, `height_m` actually came up as the most important variable. I believe this might be due to the lower correlation each of the individual six statistics have with `capture_rate`. Perhaps any one of the individual six statistics alone does not contribute much to predicting the outcome. So, I believe it was justified to use `base_total` instead.  
+One potential question that may be lingering is whether the choice to include the `base_total` rather than the individual six battle statistics was the correct one. You may be wondering whether the model would have done better if those were included instead. I went back and included those six battle statistics instead of the `base_total` and ran the random forest model. The model actually did slightly worse than it did with the total of the statistics. When running the variable importance plot for that fit, `height_m` actually came up as the most important variable. I believe this might be due to the lower correlation each of the individual six statistics have with `capture_rate`. Perhaps any one of the individual six statistics alone does not contribute much to predicting the outcome. So, I believe it was justified to use `base_total` instead.   
 
 If I were to continue this project and move forward with my analysis, I would like to explore more predictors that could contribute to finding the capture rate of a Pokemon (as mentioned before). Also, another avenue for analysis might be the Pokemon GO games instead of the original Pokemon games. It would be interesting to see if the capture rate of a Pokemon differs based on the game it is in or if the ability to predict the capture rate differs by game type.  
 
 Overall, attempting to predict the capture rate of a Pokemon using this data set provided great opportunity for me to build my machine learning and data analysis skills. As I got to know the data set more, I found myself becoming more passionate about learning everything about my data and finding a model that would work the best. Although the random forest might not have been perfect, I am glad I was able to develop a model that at least explains some of the variation in the capture rate of a Pokemon!  
 
-# Sources
+# Sources  
+
+This data was taken from the Kaggle data set, "[Pokemon Stats Dataset](https://www.kaggle.com/datasets/hasanarcas/pokemon-stats-dataset)," and it was scraped from the [official Pokemon Database](https://pokemondb.net/pokedex/all) by user Hasan Arcas.  
+
+The information about Minior was found on [Bulbapedia](https://bulbapedia.bulbagarden.net/wiki/Minior_(Pok%C3%A9mon)), a community Pokemon encyclopedia.  
+
+General facts and definitions mentioned in the project were either found or double checked (if from prior knowledge) on the [official Pokemon Database](https://pokemondb.net/). This is also the same database where the data was scraped from.  
+

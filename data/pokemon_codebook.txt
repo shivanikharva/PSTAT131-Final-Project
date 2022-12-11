@@ -1,0 +1,26 @@
+Name / Data Type / Measurement Unit / Description
+-----------------------------
+capture_rate / continuous / -- / ranges from 0 to 255; determines the rate of capture for a given Pokemon (how difficult it is to capture that Pokemon)  
+abilities / nominal / -- / contains lists of the abilities each Pokemon has  
+attack / continuous / -- / determines the physical power of a Pokemon against an opponent  
+defense / continuous / -- / determines how much damage a Pokemon can receive from a normal attack  
+hp / continuous / -- / (aka "hit points") represents the amount of damage a Pokemon can receive in battle before fainting  
+sp_attack / continuous / -- / (aka "special attack") determines the amount of special power a Pokemon has  
+sp_defense / continuous / -- / (aka "special defense") determines how much damage a Pokemon can receive from a special attack  
+speed / continuous / -- / determines what place a Pokemon will strike in battle for each round (first, second, last, etc.)  
+base_happiness / continuous / -- / determines how well a Pokemon is tamed before interaction  
+base_total / continuous / -- / sum of attack, defense, hp, sp_attack, sp_defense, speed  
+experience_growth / continuous / -- / determines how much a given Pokemon has battled  
+height_m / continuous / m / height of Pokemon in meters  
+percentage_male / continuous / % / percentage of that specific type of Pokemon that are male  
+name / nominal / -- / name of the Pokemon  
+type1 / nominal / -- / type of the Pokemon (fire, grass, water, etc.); determines weaknesses and resistance to attacks    
+weight_kg / continuous / kg / weight of the Pokemon in kg  
+generation / nominal / -- / 1, 2, 3, 4, 5, 6, 7; indicates which generation of Pokemon games that Pokemon is from  
+is_legendary / nominal / -- / 0, 1; indicates whether a Pokemon is of legendary status or not  
+has_sturdy / nominal / -- / 0, 1; indicates whether a Pokemon has the ability "Sturdy" or not
+has_swift_swim / nominal / -- / 0, 1; indicates whether a Pokemon has the ability "Swift Swim" or not
+has_keen_eye / nominal / -- / 0, 1; indicates whether a Pokemon has the ability "Keen Eye" or not
+has_chlorophyll / nominal / -- / 0, 1; indicates whether a Pokemon has the ability "Chlorophyll" or not
+has_levitate / nominal / -- / 0, 1; indicates whether a Pokemon has the ability "Levitate" or not  
+
