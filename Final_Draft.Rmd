@@ -472,7 +472,7 @@ knn_grid <- grid_regular(neighbors(range = c(1,15)), levels = 5)
 elastic_grid <- grid_regular(penalty(range = c(-5, 5)), mixture(range = c(0,1)), levels = 10)
 
 # RANDOM FOREST
-rf_parameter_grid <- grid_regular(mtry(range = c(1, 14)), trees(range = c(200,1000)), min_n(range = c(5,20)), levels = 8)
+rf_parameter_grid <- grid_regular(mtry(range = c(1, 12)), trees(range = c(200,1000)), min_n(range = c(5,20)), levels = 8)
 
 # BOOSTED TREES
 boosted_grid <- grid_regular(trees(range = c(5, 200)), learn_rate(range = c(0.01,0.1), trans = identity_trans()), min_n(range = c(40, 60)), levels = 5)
@@ -740,7 +740,7 @@ For the boosted trees, we tuned the learning rate, number of trees, and minimal 
 autoplot(rf_tuned, metric = 'rmse')
 ```
 
-For the random forest, we tuned the the minimal node size, the number of randomly selected predictors, and the number of trees. The number of trees does not seem to have much effect on the performance of the model. The minimal node size does not appear to have a huge effect on the performance, but the smaller values of `min_n` appear to have slightly lower RMSE values (at least judging by the starting point). The optimal node size appears to be at 5 (which lines up with the aforementioned observation). The number of predictors appears to have a greatest effect on performance. From the plots, it appears that, overall, a greater number of predictors renders a better performance. Actually, it seems that including all 14 predictors gives the lowest RMSE here. Based on the RMSE values in the plots, this model definitely performs the best!  
+For the random forest, we tuned the the minimal node size, the number of randomly selected predictors, and the number of trees. It may be important to note that the range of the number of randomly selected predictors for this model goes up to 12 rather than 14 (all predictors) to avoid creating a bagging model. The problem with a bagging model is that, because all the predictors are used, each tree may make the same first split. If all the trees have the same first split, every tree would no longer be independent from one another, which is an important assumption we make. And so, the range of the number of randomly selected predictors should be less than the total number of predictors, which is why I chose a slightly lower value at 12. From the plots, we can see that the number of trees does not seem to have much effect on the performance of the model. The minimal node size does not appear to have a huge effect on the performance, but the smaller values of `min_n` appear to have slightly lower RMSE values (at least judging by the starting point). The optimal node size appears to be at 5 (which lines up with the aforementioned observation). The number of predictors appears to have a greatest effect on performance. From the plots, it appears that, overall, a greater number of predictors renders a better performance. It seems that including 10-12 predictors gives the lowest RMSE here. Based on the RMSE values in the plots, this model definitely performs the best!  
 
 # Results of the Best Model  
 
@@ -756,7 +756,7 @@ rf_tuned %>%
   slice(513)
 ```
 
-Random forest #40 with all 14 predictors, 657 trees, and a minimal node size of 5 performed the best with an RMSE of 43.79638!  
+Random forest #31 with 10 predictors, 542 trees, and a minimal node size of 5 performed the best with an RMSE of 43.89281!  
 
 ## Fitting to Training Data  
 
@@ -800,7 +800,7 @@ pokemon_tibble_metrics <- pokemon_metric(pokemon_tibble, truth = capture_rate, e
 pokemon_tibble_metrics
 ```
 
-Our random forest actually performed better on the testing set than on the cross-validation folds with an RMSE of 37.87014! Since RMSE is measured in relation to the values the outcome may take on, our testing RMSE of 37.87014 in relation to the outcome range from 0 to 255 is not a great RMSE, but it is not too bad either. So, our model did not perform horribly and still managed to explain some variation in the outcome!  
+Our random forest actually performed better on the testing set than on the cross-validation folds with an RMSE of 37.78122! Since RMSE is measured in relation to the values the outcome may take on, our testing RMSE of 37.78122 in relation to the outcome range from 0 to 255 is not a great RMSE, but it is not too bad either. So, our model did not perform horribly and still managed to explain some variation in the outcome!  
 
 ## Variable Importance  
 
@@ -815,7 +815,16 @@ rf_final_fit_train %>%
 
 From this we can see that the variable that mattered the most in predicting the outcome was `base_total`, which is what we had believed would happen. Although some of the other variables present importance in predicting the outcome, the `base_total` is by far the most important variable. This also makes contextual sense because a Pokemon with higher battle statistics should be harder to capture because it has greater power than other Pokemon.  
 
+# Conclusion  
 
+After fitting various models and conducting analysis on each of them, the best model to predict the capture rate of a Pokemon seems to be the random forest model. However, this model still does not do a great job predicting the capture rate (based on the RMSE). This might mean the capture rate of a Pokemon is not very predictable or that the predictors chosen might not have been the best predictors to use.  
 
+Some avenues of improvement may be to look into other characteristics associated with capturing a Pokemon that may help explain more of the variability in the outcome than our current model. For example, in the Pokemon games, there are multiple Poke balls that can be used to capture a Pokemon (Great Ball, Ultra Ball, etc.). Perhaps the capture rate of some of the Pokemon in this data set was affected by which ball was used to capture it since some balls are more powerful than others. Another potential predictor could be the items used on a Pokemon before capturing it that might make it easier to capture (berries, etc.). This might have also altered the capture rate of some Pokemon.  
+
+One potential question that may be lingering is whether the choice to include the `base_total` rather than the individual six battle statistics was the correct one. You may be wondering whether the model would have done better if those were included instead. I went back and included those six battle statistics instead of the `base_total` and ran the random forest model. The model actually did slightly worse than it did with the total of the statistics. When running the variable importance plot for that fit, `height_m` actually came up as the most important variable. I believe this might be due to the lower correlation each of the individual six statistics have with `capture_rate`. Perhaps any one of the individual six statistics alone does not contribute much to predicting the outcome. So, I believe it was justified to use `base_total` instead.  
+
+If I were to continue this project and move forward with my analysis, I would like to explore more predictors that could contribute to finding the capture rate of a Pokemon (as mentioned before). Also, another avenue for analysis might be the Pokemon GO games instead of the original Pokemon games. It would be interesting to see if the capture rate of a Pokemon differs based on the game it is in or if the ability to predict the capture rate differs by game type.  
+
+Overall, attempting to predict the capture rate of a Pokemon using this data set provided great opportunity for me to build my machine learning and data analysis skills. As I got to know the data set more, I found myself becoming more passionate about learning everything about my data and finding a model that would work the best. Although the random forest might not have been perfect, I am glad I was able to develop a model that at least explains some of the variation in the capture rate of a Pokemon!  
 
 # Sources
