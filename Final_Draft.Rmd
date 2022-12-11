@@ -704,6 +704,20 @@ final_compare_tibble <- final_compare_tibble %>%
 final_compare_tibble
 ```
 
+Here is a visualization of these results:  
+
+```{r}
+# Creating a data frame of the model RMSE's so we can plot
+all_models <- data.frame(Model = c("Linear Regression", "Ridge Regression", "Lasso Regression", "Polynomial Regression", "K Nearest Neighbors", "Elastic Net", "Random Forest", "Boosted Trees"),
+                         RMSE = c(lm_rmse$mean, ridge_rmse$mean, lasso_rmse$mean, poly_rmse$mean, knn_rmse$mean, elastic_rmse$mean, rf_rmse$mean, boosted_rmse$mean))
+
+# Creating a barplot of the RMSE values
+ggplot(all_models, aes(x=Model, y=RMSE)) +
+  geom_bar(stat = "identity", aes(fill = Model)) +
+  scale_fill_manual(values = c("blue1", "red1", "blue2", "red2", "blue3", "red3", "blue4", "red4")) +
+  theme(legend.position = "none") 
+```
+
 From the performance of the models on the cross-validation data, we can see that the random forest performed the best! The other three models we will focus on as well are boosted trees, polynomial regression, and elastic net because those placed right after the random forest. One key thing to note from these results is that it appears the linear and simpler models did the worst, which indicates that our data is probably nonlinear.   
 
 ## Model Autoplots  
