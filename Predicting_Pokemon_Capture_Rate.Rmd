@@ -265,7 +265,7 @@ It is also apparent that there are very few Pokemon, if any, of legendary status
 
 As for legendary status, from the plot, we can see that, although there are still non-legendary Pokemon in the lower end of the capture rate, there are no legendary Pokemon with a capture rate above 50. All legendary Pokemon capture rates appears to be less than all first quartiles of non-legendary Pokemon capture rates. The data implies that legendary Pokemon genearally have a lower capture rate than non-legendary Pokemon, which is what was expected.
 
-### Type 1 Plot
+### Type 1  
 
 In our analysis, we are only using Type 1 of each Pokemon since not all Pokemon have a Type 2. However, how many types of Pokemon are there?
 
