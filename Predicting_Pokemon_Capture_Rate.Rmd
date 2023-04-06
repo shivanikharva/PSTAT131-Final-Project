@@ -1,15 +1,17 @@
 ---
 title: "Predicting the Capture Rate of Pokemon"
-subtitle: "PSTAT 131 Final Project"
 author: "Shivani Kharva"
 date: "2022-12-11"
 output:
   html_document:
     code_folding: hide
-    toc: true
-    toc_float: true
+    toc: yes
+    toc_float: yes
     df_print: paged
     theme: journal
+  pdf_document:
+    toc: yes
+subtitle: PSTAT 131 Final Project
 ---
 
 # Introduction
@@ -26,7 +28,7 @@ Pokemon (or "pocket monsters") are creatures from the Japanese Nintendo video ga
 
 ## What Are We Trying to Do?
 
-However, a question I'd like to pose is "How hard is to capture a Pokemon in the first place depending on their existing statistics?" It seems quite reasonable to hypothesize that a Pokemon's capture rate would vary depending on variables like their type, base statistics, generation, etc. So, I would like to test if it is possible to develop a model that can predict the capture rate of a Pokemon based on those qualities.
+However, a question I'd like to pose is "How hard is it to capture a Pokemon in the first place depending on their existing statistics?" It seems quite reasonable to hypothesize that a Pokemon's capture rate would vary depending on variables like their type, base statistics, generation, etc. So, I would like to test if it is possible to develop a model that can predict the capture rate of a Pokemon based on those qualities.
 
 <center>![Pokemon stats screen.](https://78.media.tumblr.com/76016a9930e876e104b528190af0e125/tumblr_oxbo3x64Ge1w5miaho1_1280.png)</center>  
 
@@ -147,7 +149,7 @@ Now the capture rate for Minior is fixed and our outcome is an integer we can us
 
 ## Tidying the Abilities Variable
 
-One last thing we need to do before our data is tidy the `abilities` variable because we currently have a column made up of lists of each Pokemon's abilities. However, it is not very useful to analyze 801 unique lists of abilities. It might be better to prioritize the abilities that are the most common among the Pokemon. Let's look at the top 5 most common abilities and their capture rates.
+One last thing we need to do before our exploratory data analysis is tidy the `abilities` variable because we currently have a column made up of lists of each Pokemon's abilities. However, it is not very useful to analyze 801 unique lists of abilities. It might be better to prioritize the abilities that are the most common among the Pokemon. Let's look at the top 5 most common abilities and their capture rates.
 
 ```{r, warning = FALSE}
 # Creating a copy of the dataset to work with
