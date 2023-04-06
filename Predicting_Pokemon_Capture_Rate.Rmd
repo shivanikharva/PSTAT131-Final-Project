@@ -149,7 +149,7 @@ Now the capture rate for Minior is fixed and our outcome is an integer we can us
 
 ## Tidying the Abilities Variable
 
-One last thing we need to do before our exploratory data analysis is tidy the `abilities` variable because we currently have a column made up of lists of each Pokemon's abilities. However, it is not very useful to analyze 801 unique lists of abilities. It might be better to prioritize the abilities that are the most common among the Pokemon. Let's look at the top 5 most common abilities and their capture rates.
+One last thing we need to do before our exploratory data analysis is tidy the `abilities` variable because we currently have a column made up of lists of each Pokemon's abilities. However, it is not very useful to analyze 801 unique lists of abilities. It may be better to prioritize the abilities that are the most common among the Pokemon. Let's look at the top 5 most common abilities and their capture rates.
 
 ```{r, warning = FALSE}
 # Creating a copy of the dataset to work with
@@ -891,3 +891,4 @@ This data was taken from the Kaggle data set, "[Pokemon Stats Dataset](https://w
 The information about Minior was found on [Bulbapedia](https://bulbapedia.bulbagarden.net/wiki/Minior_(Pok%C3%A9mon)), a community Pokemon encyclopedia.
 
 General facts and definitions mentioned in the project were either found or double checked (if from prior knowledge) on the [official Pokemon Database](https://pokemondb.net/). This is also the same database where the data was scraped from.
+
